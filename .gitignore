@@ -1,0 +1,7 @@
+build/
+external/
+dependency/
+docs/
+asset/*.js
+asset/*.css
+.env

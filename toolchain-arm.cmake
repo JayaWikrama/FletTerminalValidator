@@ -1,0 +1,29 @@
+# toolchain-arm.cmake
+set(CMAKE_SYSTEM_NAME Linux)
+set(CMAKE_SYSTEM_PROCESSOR arm)
+
+# toolchain path
+set(TOOLCHAIN_PATH /opt/toolchain/usr)
+
+# inject runtime libs for the toolchain
+set(ENV{LD_LIBRARY_PATH} "${TOOLCHAIN_PATH}/lib:$ENV{LD_LIBRARY_PATH}")
+
+set(CMAKE_BUILD_ENVIRONMENT "LD_LIBRARY_PATH=/opt/toolchain/usr/lib:$ENV{LD_LIBRARY_PATH}")
+
+# compiler
+set(CMAKE_C_COMPILER ${TOOLCHAIN_PATH}/bin/arm-buildroot-linux-gnueabihf-gcc)
+set(CMAKE_CXX_COMPILER ${TOOLCHAIN_PATH}/bin/arm-buildroot-linux-gnueabihf-g++)
+
+set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+
+set(LIBRARY_ONLY ON)
+
+# optional: find_package, find_library, etc
+set(CMAKE_FIND_ROOT_PATH ${TOOLCHAIN_PATH}/lib)
+set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
+set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
+set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
+set(CMAKE_CXX_COMPILER_LAUNCHER "${CMAKE_BUILD_ENVIRONMENT}")
+set(CMAKE_C_COMPILER_LAUNCHER "${CMAKE_BUILD_ENVIRONMENT}")
