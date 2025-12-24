@@ -4,10 +4,12 @@
 #include <thread>
 #include <mutex>
 #include <functional>
+#include <memory>
 
 class Gui;
 class Epayment;
 class WorkflowManager;
+class Duration;
 
 class Controller
 {
@@ -16,10 +18,10 @@ private:
     Epayment &epayment;
     WorkflowManager &workflow;
     Gui &gui;
-    std::thread *th;
+    std::unique_ptr<std::thread> th;
     mutable std::mutex mtx;
 
-    bool processAttachedCard();
+    bool processAttachedCard(Duration &duration);
 
     void routine();
 

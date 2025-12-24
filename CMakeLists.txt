@@ -37,6 +37,7 @@ endif()
 
 # Specify the source files
 set(SOURCE_FILES
+  src/duration.cpp
   src/ui-helper.cpp
   src/controller.cpp
 )

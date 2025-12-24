@@ -4,11 +4,12 @@
 #include <stdio.h>
 #include "controller.hpp"
 #include "ui-helper.hpp"
+#include "duration.hpp"
 #include "gui/include/gui.hpp"
 #include "epayment/include/epayment.hpp"
 #include "workflow/include/workflow-manager.hpp"
 
-bool Controller::processAttachedCard()
+bool Controller::processAttachedCard(Duration &duration)
 {
     std::array<unsigned char, 64> userData;
     unsigned short interop = 0;
@@ -17,14 +18,17 @@ bool Controller::processAttachedCard()
     UIHelper::processingCard(this->gui);
 
     unsigned long long cardNumber = epayment.getCardNumber();
+    duration.checkPoint("get card number");
     this->gui.labelCardNumber.setPAN(cardNumber, "", true);
     std::cout << "Card Number: " << cardNumber << std::endl;
 
     if (epayment.readUserData<64>(userData) == false)
     {
+        duration.checkPoint("read user data failed");
         UIHelper::failedToReadCard(this->gui, "1004");
         return false;
     }
+    duration.checkPoint("read user data");
     epayment.getFreeServiceParam(interop, expireOn);
 
 #ifdef __HARDCODE_EXPIRED_ON
@@ -36,15 +40,17 @@ bool Controller::processAttachedCard()
 
     work.validate(cardNumber, 0, userData, interop, expireOn)
         .onPinalty(
-            [this, &result, &userData](const CardData &refUserData, const std::array<unsigned char, 64> &toWrite, const TransactionRules &rules)
+            [this, &result, &userData, &duration](const CardData &refUserData, const std::array<unsigned char, 64> &toWrite, const TransactionRules &rules)
             {
                 this->epayment.setAmount(rules.getFinalFare(refUserData.isCardFreeServices(), refUserData.isCardOKOTrip(), refUserData.getSubsidyAccumulation()));
                 result = this->epayment.deduct();
                 if (result)
                 {
+                    duration.checkPoint("deduct pinalty success");
                     result = this->epayment.writeUserData<64>(toWrite, userData);
                     if (result)
                     {
+                        duration.checkPoint("write user data success");
                         UIHelper::TariffType type = UIHelper::TariffType::REGULER;
 
                         if (refUserData.isCardOKOTrip())
@@ -65,14 +71,17 @@ bool Controller::processAttachedCard()
                     }
                     else
                     {
+                        duration.checkPoint("write user data failed");
                         UIHelper::failedToWriteCard(this->gui, "1004");
                     }
                 }
                 else
                 {
+                    duration.checkPoint("deduct pinalty failed");
                     if (epayment.getLastStatus() == Epayment::CARD_OP_INSUFFICIENT_VALUE)
                     {
                         int cardBalance = this->epayment.getBalance();
+                        duration.checkPoint("get balance operation");
                         if (cardBalance >= 0)
                         {
                             UIHelper::insufficientBalance(this->gui, cardBalance);
@@ -83,15 +92,17 @@ bool Controller::processAttachedCard()
                 }
             })
         .onTapInWithDeduct(
-            [this, &result, &userData](const CardData &refUserData, const std::array<unsigned char, 64> &toWrite, const TransactionRules &rules)
+            [this, &result, &userData, &duration](const CardData &refUserData, const std::array<unsigned char, 64> &toWrite, const TransactionRules &rules)
             {
                 this->epayment.setAmount(rules.getFinalFare(refUserData.isCardFreeServices(), refUserData.isCardOKOTrip(), refUserData.getSubsidyAccumulation()));
                 result = this->epayment.deduct();
                 if (result)
                 {
+                    duration.checkPoint("deduct on tap in success");
                     result = this->epayment.writeUserData<64>(toWrite, userData);
                     if (result)
                     {
+                        duration.checkPoint("write user data success");
                         UIHelper::TariffType type = UIHelper::TariffType::REGULER;
 
                         if (refUserData.isCardOKOTrip())
@@ -112,14 +123,17 @@ bool Controller::processAttachedCard()
                     }
                     else
                     {
+                        duration.checkPoint("write user data failed");
                         UIHelper::failedToWriteCard(this->gui, "1004");
                     }
                 }
                 else
                 {
+                    duration.checkPoint("deduct on tap in failed");
                     if (epayment.getLastStatus() == Epayment::CARD_OP_INSUFFICIENT_VALUE)
                     {
                         int cardBalance = this->epayment.getBalance();
+                        duration.checkPoint("get balance operation");
                         if (cardBalance >= 0)
                         {
                             UIHelper::insufficientBalance(this->gui, cardBalance);
@@ -130,13 +144,15 @@ bool Controller::processAttachedCard()
                 }
             })
         .onTapOutWithoutDeduct(
-            [this, &result, &userData](const CardData &refUserData, const std::array<unsigned char, 64> &toWrite, const TransactionRules &rules)
+            [this, &result, &userData, &duration](const CardData &refUserData, const std::array<unsigned char, 64> &toWrite, const TransactionRules &rules)
             {
                 int cardBalance = 0;
                 result = this->epayment.writeUserData<64>(toWrite, userData);
                 if (result)
                 {
+                    duration.checkPoint("write user data success");
                     cardBalance = this->epayment.getBalance();
+                    duration.checkPoint("get balance operation on tap out without deduct");
                     result = (cardBalance >= 0);
                     std::cout << "Card Balance B: " << cardBalance << std::endl;
 
@@ -151,17 +167,20 @@ bool Controller::processAttachedCard()
                 }
                 else
                 {
+                    duration.checkPoint("write user data failed");
                     UIHelper::failedToWriteCard(this->gui, "1004");
                 }
             })
         .onTapInWithoutDeduct(
-            [this, &result, &userData](const CardData &refUserData, const std::array<unsigned char, 64> &toWrite, const TransactionRules &rules)
+            [this, &result, &userData, &duration](const CardData &refUserData, const std::array<unsigned char, 64> &toWrite, const TransactionRules &rules)
             {
                 int cardBalance = 0;
                 result = this->epayment.writeUserData<64>(toWrite, userData);
                 if (result)
                 {
+                    duration.checkPoint("write user data success");
                     cardBalance = this->epayment.getBalance();
+                    duration.checkPoint("get balance operation on tap in without deduct");
                     result = (cardBalance >= 0);
                     std::cout << "Card Balance A: " << cardBalance << std::endl;
 
@@ -176,19 +195,22 @@ bool Controller::processAttachedCard()
                 }
                 else
                 {
+                    duration.checkPoint("write user data failed");
                     UIHelper::failedToWriteCard(this->gui, "1004");
                 }
             })
         .onTapOutWithDeduct(
-            [this, &result, &userData](const CardData &refUserData, const std::array<unsigned char, 64> &toWrite, const TransactionRules &rules)
+            [this, &result, &userData, &duration](const CardData &refUserData, const std::array<unsigned char, 64> &toWrite, const TransactionRules &rules)
             {
                 this->epayment.setAmount(rules.getFinalFare(refUserData.isCardFreeServices(), refUserData.isCardOKOTrip(), refUserData.getSubsidyAccumulation()));
                 result = this->epayment.deduct();
                 if (result)
                 {
+                    duration.checkPoint("deduct on tap out success");
                     result = this->epayment.writeUserData<64>(toWrite, userData);
                     if (result)
                     {
+                        duration.checkPoint("write user data success");
                         UIHelper::TariffType type = UIHelper::TariffType::REGULER;
 
                         if (refUserData.isCardOKOTrip())
@@ -209,14 +231,17 @@ bool Controller::processAttachedCard()
                     }
                     else
                     {
+                        duration.checkPoint("write user data failed");
                         UIHelper::failedToWriteCard(this->gui, "1004");
                     }
                 }
                 else
                 {
+                    duration.checkPoint("deduct on tap out failed");
                     if (epayment.getLastStatus() == Epayment::CARD_OP_INSUFFICIENT_VALUE)
                     {
                         int cardBalance = this->epayment.getBalance();
+                        duration.checkPoint("get balance operation");
                         if (cardBalance >= 0)
                         {
                             UIHelper::insufficientBalance(this->gui, cardBalance);
@@ -249,22 +274,25 @@ void Controller::routine()
 {
     if (this->epayment.selectAttachedCard())
     {
+        bool result = false;
         try
         {
-            if (this->processAttachedCard())
-            {
-                std::this_thread::sleep_for(std::chrono::milliseconds(3000));
-            }
-            else
-            {
-                std::this_thread::sleep_for(std::chrono::milliseconds(1500));
-            }
-            UIHelper::reset(this->gui, 1);
+            Duration duration("transaction");
+            result = this->processAttachedCard(duration);
         }
         catch (const std::exception &e)
         {
             std::cout << "Catch: " << e.what() << std::endl;
         }
+        if (result)
+        {
+            std::this_thread::sleep_for(std::chrono::milliseconds(3000));
+        }
+        else
+        {
+            std::this_thread::sleep_for(std::chrono::milliseconds(1500));
+        }
+        UIHelper::reset(this->gui, 1);
     }
     else
     {
@@ -276,7 +304,7 @@ Controller::Controller(Epayment &epayment, WorkflowManager &workflow, Gui &gui) 
                                                                                   epayment(epayment),
                                                                                   workflow(workflow),
                                                                                   gui(gui),
-                                                                                  th(nullptr),
+                                                                                  th(),
                                                                                   mtx() {}
 
 Controller::~Controller()
@@ -302,7 +330,7 @@ void Controller::begin(std::function<void(Epayment &epayment, WorkflowManager &w
         std::lock_guard<std::mutex> guard(this->mtx);
         this->isRun = true;
     }
-    this->th = new std::thread(
+    this->th.reset(new std::thread(
         [this, preSetup]()
         {
             this->gui.waitObjectReady();
@@ -315,7 +343,7 @@ void Controller::begin(std::function<void(Epayment &epayment, WorkflowManager &w
                 this->routine();
                 std::this_thread::sleep_for(std::chrono::milliseconds(125));
             }
-        });
+        }));
 }
 
 void Controller::stop()
@@ -325,6 +353,5 @@ void Controller::stop()
         this->isRun = false;
     }
     this->th->join();
-    delete this->th;
-    this->th = nullptr;
+    this->th.reset();
 }
