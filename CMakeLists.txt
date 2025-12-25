@@ -70,6 +70,7 @@ target_link_libraries(${PROJECT_NAME}
     ${CMAKE_CURRENT_SOURCE_DIR}/dependency/gui/lib/libgui.so
     ${CMAKE_CURRENT_SOURCE_DIR}/dependency/communication/lib/libcommunication.so
     ${CMAKE_CURRENT_SOURCE_DIR}/dependency/communication/lib/libcurl.so.4.6.0
+    ${CMAKE_CURRENT_SOURCE_DIR}/dependency/tscdata/lib/libtscdata.so
 )
 target_link_libraries(${PROJECT_NAME}
   PUBLIC

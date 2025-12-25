@@ -1,14 +1,55 @@
 #include <cstring>
 #include <cstdlib>
-#include <stdio.h>
+#include <chrono>
+#include <random>
+#include <sstream>
+#include <iomanip>
 #include "controller.hpp"
 #include "ui-helper.hpp"
 #include "duration.hpp"
 #include "gui/include/gui.hpp"
 #include "epayment/include/epayment.hpp"
 #include "workflow/include/workflow-manager.hpp"
+#include "tscdata/include/transaction-data.hpp"
+#include "tscdata/include/sqlite3-transaction.hpp"
 
 #include "utils/include/debug.hpp"
+
+static std::string generateTimeBasedUUID(std::time_t timeValue)
+{
+    unsigned long long timestampMs = static_cast<unsigned long long>(timeValue) * 1000ULL;
+
+    static std::mt19937 gen(static_cast<unsigned>(
+        std::chrono::high_resolution_clock::now()
+            .time_since_epoch()
+            .count()));
+
+    std::uniform_int_distribution<unsigned long long> dist(0, UINT64_MAX);
+
+    unsigned long long randA = dist(gen);
+    unsigned long long randB = dist(gen);
+
+    std::stringstream ss;
+    ss << std::hex << std::setfill('0');
+
+    // 48-bit timestamp
+    ss << std::setw(12) << (timestampMs & 0xFFFFFFFFFFFFULL);
+    ss << "-";
+
+    // version 7
+    ss << std::setw(4) << ((randA & 0x0FFFULL) | 0x7000);
+    ss << "-";
+
+    // variant RFC 4122
+    ss << std::setw(4) << ((randA >> 12 & 0x3FFFULL) | 0x8000);
+    ss << "-";
+
+    ss << std::setw(4) << (randB & 0xFFFFULL);
+    ss << "-";
+    ss << std::setw(12) << ((randB >> 16) & 0xFFFFFFFFFFFFULL);
+
+    return ss.str();
+}
 
 bool Controller::processAttachedCard(Duration &duration)
 {
@@ -52,6 +93,7 @@ bool Controller::processAttachedCard(Duration &duration)
                     if (result)
                     {
                         duration.checkPoint("write user data success");
+
                         UIHelper::TariffType type = UIHelper::TariffType::REGULER;
 
                         if (refUserData.isCardOKOTrip())
@@ -62,13 +104,23 @@ bool Controller::processAttachedCard(Duration &duration)
                         UIHelper::successTapInWithDeduct(this->gui,
                                                          rules.getFinalFare(refUserData.isCardFreeServices(), refUserData.isCardOKOTrip(), refUserData.getSubsidyAccumulation()),
                                                          rules.getFinalFare(refUserData.isCardFreeServices(), refUserData.isCardOKOTrip(), refUserData.getSubsidyAccumulation()),
-                                                         epayment.getLastBalance(),
+                                                         this->epayment.getLastBalance(),
                                                          type,
                                                          refUserData.freeService.expireOn);
 
-                        Debug::info(__FILE__, __LINE__, __func__, "last balance: %u\n", epayment.getLastBalance());
-                        Debug::info(__FILE__, __LINE__, __func__, "transcode   : %s\n", epayment.getTranscodeUTF8());
-                        epayment.purchaseCommit();
+                        Debug::info(__FILE__, __LINE__, __func__, "last balance: %u\n", this->epayment.getLastBalance());
+                        Debug::info(__FILE__, __LINE__, __func__, "transcode   : %s\n", this->epayment.getTranscodeUTF8());
+
+                        this->storeTransaction(
+                            true,
+                            true,
+                            std::time(nullptr),
+                            this->epayment.getLastBalance(),
+                            refUserData,
+                            rules,
+                            duration);
+
+                        this->epayment.purchaseCommit();
                     }
                     else
                     {
@@ -79,7 +131,7 @@ bool Controller::processAttachedCard(Duration &duration)
                 else
                 {
                     duration.checkPoint("deduct pinalty failed");
-                    if (epayment.getLastStatus() == Epayment::CARD_OP_INSUFFICIENT_VALUE)
+                    if (this->epayment.getLastStatus() == Epayment::CARD_OP_INSUFFICIENT_VALUE)
                     {
                         int cardBalance = this->epayment.getBalance();
                         duration.checkPoint("get balance operation");
@@ -89,7 +141,7 @@ bool Controller::processAttachedCard(Duration &duration)
                             return;
                         }
                     }
-                    UIHelper::failedToDeductCard(this->gui, std::to_string(static_cast<int>(epayment.getLastStatus())));
+                    UIHelper::failedToDeductCard(this->gui, std::to_string(static_cast<int>(this->epayment.getLastStatus())));
                 }
             })
         .onTapInWithDeduct(
@@ -114,13 +166,23 @@ bool Controller::processAttachedCard(Duration &duration)
                         UIHelper::successTapInWithDeduct(this->gui,
                                                          rules.getFinalFare(refUserData.isCardFreeServices(), refUserData.isCardOKOTrip(), refUserData.getSubsidyAccumulation()),
                                                          rules.getFinalFare(refUserData.isCardFreeServices(), refUserData.isCardOKOTrip(), refUserData.getSubsidyAccumulation()),
-                                                         epayment.getLastBalance(),
+                                                         this->epayment.getLastBalance(),
                                                          type,
                                                          refUserData.freeService.expireOn);
 
-                        Debug::info(__FILE__, __LINE__, __func__, "last balance: %u\n", epayment.getLastBalance());
-                        Debug::info(__FILE__, __LINE__, __func__, "transcode   : %s\n", epayment.getTranscodeUTF8());
-                        epayment.purchaseCommit();
+                        Debug::info(__FILE__, __LINE__, __func__, "last balance: %u\n", this->epayment.getLastBalance());
+                        Debug::info(__FILE__, __LINE__, __func__, "transcode   : %s\n", this->epayment.getTranscodeUTF8());
+
+                        this->storeTransaction(
+                            true,
+                            true,
+                            std::time(nullptr),
+                            this->epayment.getLastBalance(),
+                            refUserData,
+                            rules,
+                            duration);
+
+                        this->epayment.purchaseCommit();
                     }
                     else
                     {
@@ -131,7 +193,7 @@ bool Controller::processAttachedCard(Duration &duration)
                 else
                 {
                     duration.checkPoint("deduct on tap in failed");
-                    if (epayment.getLastStatus() == Epayment::CARD_OP_INSUFFICIENT_VALUE)
+                    if (this->epayment.getLastStatus() == Epayment::CARD_OP_INSUFFICIENT_VALUE)
                     {
                         int cardBalance = this->epayment.getBalance();
                         duration.checkPoint("get balance operation");
@@ -141,7 +203,7 @@ bool Controller::processAttachedCard(Duration &duration)
                             return;
                         }
                     }
-                    UIHelper::failedToDeductCard(this->gui, std::to_string(static_cast<int>(epayment.getLastStatus())));
+                    UIHelper::failedToDeductCard(this->gui, std::to_string(static_cast<int>(this->epayment.getLastStatus())));
                 }
             })
         .onTapOutWithoutDeduct(
@@ -165,6 +227,15 @@ bool Controller::processAttachedCard(Duration &duration)
                         type = UIHelper::TariffType::FREE;
 
                     UIHelper::successTapOutWithoutDeduct(this->gui, cardBalance, type, refUserData.freeService.expireOn);
+
+                    this->storeTransaction(
+                        false,
+                        false,
+                        std::time(nullptr),
+                        cardBalance,
+                        refUserData,
+                        rules,
+                        duration);
                 }
                 else
                 {
@@ -193,6 +264,15 @@ bool Controller::processAttachedCard(Duration &duration)
                         type = UIHelper::TariffType::FREE;
 
                     UIHelper::successTapInWithoutDeduct(this->gui, cardBalance, type, refUserData.freeService.expireOn);
+
+                    this->storeTransaction(
+                        true,
+                        false,
+                        std::time(nullptr),
+                        cardBalance,
+                        refUserData,
+                        rules,
+                        duration);
                 }
                 else
                 {
@@ -222,13 +302,23 @@ bool Controller::processAttachedCard(Duration &duration)
                         UIHelper::successTapOutWithDeduct(this->gui,
                                                           rules.getFinalFare(refUserData.isCardFreeServices(), refUserData.isCardOKOTrip(), refUserData.getSubsidyAccumulation()),
                                                           rules.getFinalFare(refUserData.isCardFreeServices(), refUserData.isCardOKOTrip(), refUserData.getSubsidyAccumulation()),
-                                                          epayment.getLastBalance(),
+                                                          this->epayment.getLastBalance(),
                                                           type,
                                                           refUserData.freeService.expireOn);
 
-                        Debug::info(__FILE__, __LINE__, __func__, "last balance: %u\n", epayment.getLastBalance());
-                        Debug::info(__FILE__, __LINE__, __func__, "transcode   : %s\n", epayment.getTranscodeUTF8());
-                        epayment.purchaseCommit();
+                        Debug::info(__FILE__, __LINE__, __func__, "last balance: %u\n", this->epayment.getLastBalance());
+                        Debug::info(__FILE__, __LINE__, __func__, "transcode   : %s\n", this->epayment.getTranscodeUTF8());
+
+                        this->storeTransaction(
+                            false,
+                            true,
+                            std::time(nullptr),
+                            this->epayment.getLastBalance(),
+                            refUserData,
+                            rules,
+                            duration);
+
+                        this->epayment.purchaseCommit();
                     }
                     else
                     {
@@ -239,7 +329,7 @@ bool Controller::processAttachedCard(Duration &duration)
                 else
                 {
                     duration.checkPoint("deduct on tap out failed");
-                    if (epayment.getLastStatus() == Epayment::CARD_OP_INSUFFICIENT_VALUE)
+                    if (this->epayment.getLastStatus() == Epayment::CARD_OP_INSUFFICIENT_VALUE)
                     {
                         int cardBalance = this->epayment.getBalance();
                         duration.checkPoint("get balance operation");
@@ -249,7 +339,7 @@ bool Controller::processAttachedCard(Duration &duration)
                             return;
                         }
                     }
-                    UIHelper::failedToDeductCard(this->gui, std::to_string(static_cast<int>(epayment.getLastStatus())));
+                    UIHelper::failedToDeductCard(this->gui, std::to_string(static_cast<int>(this->epayment.getLastStatus())));
                 }
             })
         .onFreeServiceExpired(
@@ -271,20 +361,83 @@ bool Controller::processAttachedCard(Duration &duration)
     return result;
 }
 
+bool Controller::storeTransaction(bool isTapIn,
+                                  bool isDeduct,
+                                  const std::time_t time,
+                                  const int lastBalance,
+                                  const CardData &refUserData,
+                                  const TransactionRules &rules,
+                                  Duration &duration)
+{
+    unsigned int amount = rules.getFinalFare(refUserData.isCardFreeServices(), refUserData.isCardOKOTrip(), refUserData.getSubsidyAccumulation());
+
+    TransactionIdentity ref;
+    ref.setFletCode(refUserData.getFletCode());
+    ref.setTerminalId(refUserData.getTerminalId());
+    ref.setTransactionTime(refUserData.getEpochTime());
+    ref.setTransportationType(refUserData.getTrasportationCode());
+
+    TransactionIdentity me(this->workflow.getIdentity());
+    me.setTransactionTime(std::time(nullptr));
+
+    CardData card = refUserData;
+    card.setIssuer(this->epayment.getIssuer());
+    card.setBank(this->epayment.getBank());
+
+    TransactionData tsc(isTapIn);
+
+    tsc.setIntegratorId(1);
+    tsc.setMinimumBalance(0);
+    tsc.setBalanceBeforeTransaction(isDeduct ? (lastBalance + amount) : lastBalance);
+    tsc.setNormalFare(rules.getNormalFare());
+    tsc.setFare(isDeduct ? amount : 0);
+    tsc.setBalanceAfterTransaction(lastBalance);
+    tsc.setProcessingTimeMs(duration.getTotalDurationInMs());
+    tsc.setCoordinates(0.0, 0.0);
+    tsc.setTransactionTime(std::time(nullptr));
+    tsc.setTransactionStoredTime(std::time(nullptr));
+    tsc.setUUID(generateTimeBasedUUID(tsc.getTransactionTime()));
+    tsc.setMID(this->epayment.getActiveMID());
+    tsc.setTID(this->epayment.getActiveTID());
+    tsc.setTranscode(isDeduct ? this->epayment.getTranscode() : "");
+    tsc.setStatus("S");
+    tsc.setDescription("S");
+    tsc.setTransactionInInfo(me);
+    tsc.setTransactionOutInfo(ref);
+    tsc.setCardData(card);
+
+    Sqlite3Transaction tscdb(TRANSACTION_DATABASE);
+    tscdb.insertLog(tsc);
+}
+
 void Controller::routine()
 {
-    if (this->epayment.selectAttachedCard())
+    bool cardAvailable = false;
+    bool result = false;
+
+    { /* needed for duration calculation */
+        Duration duration("transaction");
+        cardAvailable = this->epayment.selectAttachedCard();
+        if (cardAvailable)
+        {
+            duration.checkPoint("card pooling");
+            try
+            {
+                result = this->processAttachedCard(duration);
+            }
+            catch (const std::exception &e)
+            {
+                Debug::info(__FILE__, __LINE__, __func__, "catch: %s\n", e.what());
+            }
+        }
+        else
+        {
+            std::this_thread::sleep_for(std::chrono::milliseconds(50));
+        }
+    }
+
+    if (cardAvailable)
     {
-        bool result = false;
-        try
-        {
-            Duration duration("transaction");
-            result = this->processAttachedCard(duration);
-        }
-        catch (const std::exception &e)
-        {
-            Debug::info(__FILE__, __LINE__, __func__, "catch: %s\n", e.what());
-        }
         if (result)
         {
             std::this_thread::sleep_for(std::chrono::milliseconds(3000));
@@ -294,10 +447,6 @@ void Controller::routine()
             std::this_thread::sleep_for(std::chrono::milliseconds(1500));
         }
         UIHelper::reset(this->gui, 1);
-    }
-    else
-    {
-        std::this_thread::sleep_for(std::chrono::milliseconds(50));
     }
 }
 

@@ -6,9 +6,19 @@
 #include <functional>
 #include <memory>
 
+#ifndef FTV_WORKING_DIRECTORY
+#define FTV_WORKING_DIRECTORY "./"
+#endif
+
+#define DATA_DIRECTORY FTV_WORKING_DIRECTORY "data/"
+
+#define TRANSACTION_DATABASE DATA_DIRECTORY "transaction.db"
+
 class Gui;
 class Epayment;
 class WorkflowManager;
+class TransactionRules;
+class CardData;
 class Duration;
 
 class Controller
@@ -22,6 +32,13 @@ private:
     mutable std::mutex mtx;
 
     bool processAttachedCard(Duration &duration);
+    bool storeTransaction(bool isTapIn,
+                          bool isDeduct,
+                          const std::time_t time,
+                          const int lastBalance,
+                          const CardData &refUserData,
+                          const TransactionRules &rules,
+                          Duration &duration);
 
     void routine();
 

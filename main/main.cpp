@@ -9,7 +9,7 @@
 #include "epayment/include/epayment.hpp"
 #include "workflow/include/workflow-manager.hpp"
 #include "gui/include/gui.hpp"
-
+#include "tscdata/include/sqlite3-transaction.hpp"
 #include "communication/include/fetch-api.hpp"
 
 #include "utils/include/debug.hpp"
@@ -69,6 +69,9 @@ int main(int argc, char *argv[])
                 });
         return 0;
     }
+
+    Sqlite3Transaction tscdb(TRANSACTION_DATABASE);
+    tscdb.createLog();
 
     Gui gui;
     Epayment epayment;

@@ -34,7 +34,9 @@ public:
     Duration(const std::string &caption = "");
     ~Duration();
 
-    double checkPoint(const std::string &caption = "");
+    void checkPoint(const std::string &caption = "");
+    double getTotalDurationInSeconds() const;
+    int getTotalDurationInMs() const;
 };
 
 #endif
