@@ -1,4 +1,3 @@
-#include <iostream>
 #include <cstring>
 #include <cstdlib>
 #include <stdio.h>
@@ -8,6 +7,8 @@
 #include "gui/include/gui.hpp"
 #include "epayment/include/epayment.hpp"
 #include "workflow/include/workflow-manager.hpp"
+
+#include "utils/include/debug.hpp"
 
 bool Controller::processAttachedCard(Duration &duration)
 {
@@ -20,7 +21,7 @@ bool Controller::processAttachedCard(Duration &duration)
     unsigned long long cardNumber = epayment.getCardNumber();
     duration.checkPoint("get card number");
     this->gui.labelCardNumber.setPAN(cardNumber, "", true);
-    std::cout << "Card Number: " << cardNumber << std::endl;
+    Debug::info(__FILE__, __LINE__, __func__, "card number: %016llu\n", cardNumber);
 
     if (epayment.readUserData<64>(userData) == false)
     {
@@ -65,8 +66,8 @@ bool Controller::processAttachedCard(Duration &duration)
                                                          type,
                                                          refUserData.freeService.expireOn);
 
-                        std::cout << "Sisa Saldo: " << std::to_string(epayment.getLastBalance()) << std::endl;
-                        std::cout << "Transcode: " << epayment.getTranscodeUTF8() << std::endl;
+                        Debug::info(__FILE__, __LINE__, __func__, "last balance: %u\n", epayment.getLastBalance());
+                        Debug::info(__FILE__, __LINE__, __func__, "transcode   : %s\n", epayment.getTranscodeUTF8());
                         epayment.purchaseCommit();
                     }
                     else
@@ -117,8 +118,8 @@ bool Controller::processAttachedCard(Duration &duration)
                                                          type,
                                                          refUserData.freeService.expireOn);
 
-                        std::cout << "Sisa Saldo: " << std::to_string(epayment.getLastBalance()) << std::endl;
-                        std::cout << "Transcode: " << epayment.getTranscodeUTF8() << std::endl;
+                        Debug::info(__FILE__, __LINE__, __func__, "last balance: %u\n", epayment.getLastBalance());
+                        Debug::info(__FILE__, __LINE__, __func__, "transcode   : %s\n", epayment.getTranscodeUTF8());
                         epayment.purchaseCommit();
                     }
                     else
@@ -154,7 +155,7 @@ bool Controller::processAttachedCard(Duration &duration)
                     cardBalance = this->epayment.getBalance();
                     duration.checkPoint("get balance operation on tap out without deduct");
                     result = (cardBalance >= 0);
-                    std::cout << "Card Balance B: " << cardBalance << std::endl;
+                    Debug::info(__FILE__, __LINE__, __func__, "balance: %u\n", cardBalance);
 
                     UIHelper::TariffType type = UIHelper::TariffType::REGULER;
 
@@ -182,7 +183,7 @@ bool Controller::processAttachedCard(Duration &duration)
                     cardBalance = this->epayment.getBalance();
                     duration.checkPoint("get balance operation on tap in without deduct");
                     result = (cardBalance >= 0);
-                    std::cout << "Card Balance A: " << cardBalance << std::endl;
+                    Debug::info(__FILE__, __LINE__, __func__, "balance: %u\n", cardBalance);
 
                     UIHelper::TariffType type = UIHelper::TariffType::REGULER;
 
@@ -225,8 +226,8 @@ bool Controller::processAttachedCard(Duration &duration)
                                                           type,
                                                           refUserData.freeService.expireOn);
 
-                        std::cout << "Sisa Saldo: " << std::to_string(epayment.getLastBalance()) << std::endl;
-                        std::cout << "Transcode: " << epayment.getTranscodeUTF8() << std::endl;
+                        Debug::info(__FILE__, __LINE__, __func__, "last balance: %u\n", epayment.getLastBalance());
+                        Debug::info(__FILE__, __LINE__, __func__, "transcode   : %s\n", epayment.getTranscodeUTF8());
                         epayment.purchaseCommit();
                     }
                     else
@@ -264,7 +265,7 @@ bool Controller::processAttachedCard(Duration &duration)
         .onInvalid(
             [this](const std::array<unsigned char, 64> &userData)
             {
-                std::cout << "Invalid card data" << std::endl;
+                Debug::error(__FILE__, __LINE__, __func__, "invalid user data\n");
             });
 
     return result;
@@ -282,7 +283,7 @@ void Controller::routine()
         }
         catch (const std::exception &e)
         {
-            std::cout << "Catch: " << e.what() << std::endl;
+            Debug::info(__FILE__, __LINE__, __func__, "catch: %s\n", e.what());
         }
         if (result)
         {

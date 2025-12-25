@@ -12,6 +12,8 @@
 
 #include "communication/include/fetch-api.hpp"
 
+#include "utils/include/debug.hpp"
+
 std::string toFletCode(const std::array<unsigned char, 9> &flet)
 {
     std::array<char, 10> result{};
@@ -44,7 +46,7 @@ int main(int argc, char *argv[])
     {
         if (argc != 2)
         {
-            std::cout << "cmd: " << argv[0] << " <url>" << std::endl;
+            Debug::error(__FILE__, __LINE__, __func__, "command: %s <url>\n", argv[0]);
             return 1;
         }
         FetchAPI fapi(argv[1], 5, 10);
@@ -52,18 +54,18 @@ int main(int argc, char *argv[])
             .onSuccess(
                 [](const std::string &payload)
                 {
-                    std::cout << "success to access URL" << std::endl;
+                    Debug::info(__FILE__, __LINE__, __func__, "GET Method success\n");
                     std::cout << payload << std::endl;
                 })
             .onTimeout(
                 []()
                 {
-                    std::cout << "Request Timeout" << std::endl;
+                    Debug::error(__FILE__, __LINE__, __func__, "request timeout\n");
                 })
             .onError(
                 [](FetchAPI::ReturnCode code, const std::string &err)
                 {
-                    std::cout << "err: " << err << std::endl;
+                    Debug::error(__FILE__, __LINE__, __func__, "%s\n", err.c_str());
                 });
         return 0;
     }
@@ -80,7 +82,7 @@ int main(int argc, char *argv[])
 
     Controller controller(epayment, workflow, gui);
 
-    std::cout << "Epayment library version " << epayment.getVersion() << std::endl;
+    Debug::info(__FILE__, __LINE__, __func__, "epayment library version: %s\n", epayment.getVersion().c_str());
     if (epayment.setMandiriSamConfig(1, "04A1F155E72EF8A2", "0019", "123456789012345", "32050100") == false)
     {
         return 1;

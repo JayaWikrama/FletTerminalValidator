@@ -1,5 +1,5 @@
-#include <iostream>
 #include "duration.hpp"
+#include "utils/include/debug.hpp"
 
 std::chrono::steady_clock::time_point timePoint;
 std::string caption;
@@ -26,7 +26,7 @@ double Duration::PointRefs::diff(const std::chrono::steady_clock::time_point &re
 
 void Duration::printDiffTime(const PointRefs &pref, const std::chrono::steady_clock::time_point &sref) const
 {
-    std::cout << "elapsed time of " << pref.getCaption() << " is " << pref.diff(sref) << "s" << std::endl;
+    Debug::info(__FILE__, __LINE__, "elapsed time", "%s: %.03f\n", pref.getCaption().c_str(), pref.diff(sref));
 }
 
 Duration::Duration(const std::string &caption) : startRef(std::chrono::steady_clock::now()), pointRefs(), caption(caption)
@@ -49,7 +49,7 @@ Duration::~Duration()
     }
     if (this->caption.empty())
     {
-        std::cout << "total elapsed time of " << this->caption << " is " << diff.count() << "s" << std::endl;
+        Debug::info(__FILE__, __LINE__, "elapsed time", "total: %.03f\n", diff.count());
     }
 }
 

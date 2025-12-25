@@ -46,7 +46,7 @@ set(SOURCE_FILES
 add_library(${PROJECT_NAME}-obj OBJECT ${SOURCE_FILES})
 
 # Create executable
-add_executable(${PROJECT_NAME} main/main.cpp $<TARGET_OBJECTS:${PROJECT_NAME}-obj>)
+add_executable(${PROJECT_NAME} main/main.cpp $<TARGET_OBJECTS:${PROJECT_NAME}-obj> $<TARGET_OBJECTS:utils-obj>)
 
 # Include directories for the project
 set(INCLUDE_DIRS
@@ -93,3 +93,5 @@ set_target_properties(${PROJECT_NAME} PROPERTIES
 # Compiler and linker flags
 set(CMAKE_CXX_FLAGS_DEBUG "-g -O0 -fPIC")
 set(CMAKE_CXX_FLAGS_RELEASE "-O3 -fPIC")
+
+add_subdirectory(external/utils EXCLUDE_FROM_ALL)
