@@ -446,6 +446,7 @@ void Controller::routine()
         {
             std::this_thread::sleep_for(std::chrono::milliseconds(1500));
         }
+        Debug::moveLogHistoryToFile();
         UIHelper::reset(this->gui, 1);
     }
 }

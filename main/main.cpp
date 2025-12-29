@@ -14,6 +14,13 @@
 
 #include "utils/include/debug.hpp"
 
+#ifndef WORKING_DIRECTORY
+#define WORKING_DIRECTORY "."
+#endif
+
+#define MAIN_APP_LOG_DIRECTORY WORKING_DIRECTORY "/log/main"
+#define MAIN_APP_LOG_FILE "main_app"
+
 std::string toFletCode(const std::array<unsigned char, 9> &flet)
 {
     std::array<char, 10> result{};
@@ -69,6 +76,9 @@ int main(int argc, char *argv[])
                 });
         return 0;
     }
+
+    Debug::setMaxLinesLogCache(1024);
+    Debug::setupTXTLogFile(MAIN_APP_LOG_DIRECTORY, MAIN_APP_LOG_FILE, 20971520UL, 5, 5);
 
     Sqlite3Transaction tscdb(TRANSACTION_DATABASE);
     tscdb.createLog();
@@ -179,6 +189,8 @@ int main(int argc, char *argv[])
             ui.labelTariff.setRupiah(1, "Tarif", true);
             ui.labelStatus.hide();
             ui.message.hide();
+
+            Debug::moveLogHistoryToFile();
         });
 
     gui.begin(argc, argv);
