@@ -8,6 +8,9 @@ set(TOOLCHAIN_PATH /opt/toolchain/usr)
 # inject runtime libs for the toolchain
 set(ENV{LD_LIBRARY_PATH} "${TOOLCHAIN_PATH}/lib:$ENV{LD_LIBRARY_PATH}")
 
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -I${CMAKE_CURRENT_SOURCE_DIR}/dependency/lzma/include")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -I${CMAKE_CURRENT_SOURCE_DIR}/dependency/lzma/include")
+
 set(CMAKE_BUILD_ENVIRONMENT "LD_LIBRARY_PATH=/opt/toolchain/usr/lib:$ENV{LD_LIBRARY_PATH}")
 
 # compiler

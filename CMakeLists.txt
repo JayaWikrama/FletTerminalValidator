@@ -53,6 +53,7 @@ set(INCLUDE_DIRS
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/dependency>
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/dependency/communication/include>
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/dependency/lzma/include>
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/external>
   $<INSTALL_INTERFACE:include>
 )
@@ -71,6 +72,7 @@ target_link_libraries(${PROJECT_NAME}
     ${CMAKE_CURRENT_SOURCE_DIR}/dependency/communication/lib/libcommunication.so
     ${CMAKE_CURRENT_SOURCE_DIR}/dependency/communication/lib/libcurl.so.4.6.0
     ${CMAKE_CURRENT_SOURCE_DIR}/dependency/tscdata/lib/libtscdata.so
+    ${CMAKE_CURRENT_SOURCE_DIR}/dependency/lzma/lib/liblzma.a
 )
 target_link_libraries(${PROJECT_NAME}
   PUBLIC
