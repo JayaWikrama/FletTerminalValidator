@@ -1,3 +1,6 @@
 [submodule "external/utils"]
 	path = external/utils
 	url = https://github.com/JayaWikrama/utills.git
+[submodule "internal/tscdata"]
+	path = internal/tscdata
+	url = git@github.com:JayaWikrama/FletValidatorTransactionData.git
