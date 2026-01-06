@@ -55,6 +55,7 @@ add_executable(${PROJECT_NAME} main/main.cpp $<TARGET_OBJECTS:${PROJECT_NAME}-ob
 set(INCLUDE_DIRS
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/dependency>
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/dependency/workflow/include>
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/dependency/communication/include>
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/dependency/lzma/include>
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/dependency/sqlite3/include>
