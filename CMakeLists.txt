@@ -29,7 +29,8 @@ endif()
 add_definitions(-D__USE_EMPTECH_READER)
 add_definitions(-D__TRANSJAKARTA)
 ## Directory Tree
-add_definitions(-D__DATA_DIRECTORY__="root.data/")
+### Working Directory
+add_definitions(-DFTV_WORKING_DIRECTORY="/data/aino")
 
 # Verbose compile option
 option(VERBOSE "Enable verbose compile" OFF)

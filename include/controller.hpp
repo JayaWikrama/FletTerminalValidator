@@ -7,12 +7,18 @@
 #include <memory>
 
 #ifndef FTV_WORKING_DIRECTORY
-#define FTV_WORKING_DIRECTORY "./"
+#define FTV_WORKING_DIRECTORY "."
 #endif
 
-#define DATA_DIRECTORY FTV_WORKING_DIRECTORY "data/"
+#define CONFIG_DIRECTORY FTV_WORKING_DIRECTORY "/config"
+#define DATA_DIRECTORY FTV_WORKING_DIRECTORY "/data"
+#define LOG_DIRECTORY FTV_WORKING_DIRECTORY "/log"
+
+#define MAIN_APP_LOG_DIRECTORY LOG_DIRECTORY "/main"
+#define EPAYMENT_MODULE_LOG_DIRECTORY LOG_DIRECTORY "/epayment"
 
 #define TRANSACTION_DATABASE DATA_DIRECTORY "transaction.db"
+#define MAIN_APP_LOG_FILE "main_app"
 
 class Gui;
 class Epayment;

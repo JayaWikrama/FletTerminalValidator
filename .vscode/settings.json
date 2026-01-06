@@ -83,6 +83,7 @@
     "C_Cpp.default.includePath": [
         "${workspaceFolder}/include",
         "${workspaceFolder}/external",
+        "${workspaceFolder}/internal",
         "${workspaceFolder}/dependency",
         "${workspaceFolder}/dependency/communication/include",
         "/usr/include",
