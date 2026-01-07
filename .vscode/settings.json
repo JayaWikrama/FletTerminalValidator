@@ -86,6 +86,7 @@
         "${workspaceFolder}/internal",
         "${workspaceFolder}/dependency",
         "${workspaceFolder}/dependency/communication/include",
+        "${workspaceFolder}/dependency/workflow/include",
         "/usr/include",
         "/usr/local/include",
         "/usr/include/c++/11",

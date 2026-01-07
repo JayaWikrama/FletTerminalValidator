@@ -17,7 +17,7 @@
 #define MAIN_APP_LOG_DIRECTORY LOG_DIRECTORY "/main"
 #define EPAYMENT_MODULE_LOG_DIRECTORY LOG_DIRECTORY "/epayment"
 
-#define TRANSACTION_DATABASE DATA_DIRECTORY "transaction.db"
+#define TRANSACTION_DATABASE DATA_DIRECTORY "/transaction.db"
 #define MAIN_APP_LOG_FILE "main_app"
 
 class Gui;
