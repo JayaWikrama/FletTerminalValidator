@@ -93,7 +93,7 @@ int main(int argc, char *argv[])
     {
         return 1;
     }
-    if (epayment.setBNISamConfig(1, "110990000123456", "00020103") == false)
+    if (epayment.setBNISamConfig(1, "110990000123456", "00020103", "9364851325635E65A3349BE36DF87D01") == false)
     {
         return 1;
     }
