@@ -80,7 +80,14 @@ bool Controller::processAttachedCard(Duration &duration)
     WorkflowManager &work = this->workflow;
     bool result = false;
 
-    work.validate(cardNumber, 0, userData, interop, expireOn)
+    work.validate(
+            this->epayment.getBank(),
+            (this->epayment.getIssuer().compare("jakcard") ? this->epayment.getIssuer() : "jakcard2"),
+            cardNumber,
+            0,
+            userData,
+            interop,
+            expireOn)
         .onPinalty(
             [this, &result, &userData, &duration](const CardData &refUserData, const std::array<unsigned char, 64> &toWrite, const TransactionRules &rules)
             {
@@ -356,8 +363,13 @@ bool Controller::processAttachedCard(Duration &duration)
             [this](const std::array<unsigned char, 64> &userData)
             {
                 Debug::error(__FILE__, __LINE__, __func__, "invalid user data\n");
+            })
+        .onFareNotFound(
+            [this](const std::array<unsigned char, 64> &userData)
+            {
+                Debug::error(__FILE__, __LINE__, __func__, "fare not found\n");
+                UIHelper::fareNotFound(this->gui);
             });
-
     return result;
 }
 

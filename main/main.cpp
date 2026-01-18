@@ -13,6 +13,7 @@
 #include "communication/include/fetch-api.hpp"
 
 #include "utils/include/debug.hpp"
+#include "utils/include/time.hpp"
 
 std::string toFletCode(const std::array<unsigned char, 9> &flet)
 {
@@ -86,28 +87,81 @@ int main(int argc, char *argv[])
         {0x34, 0x31, 0x32, 0x30, 0x30, 0x31},
         CardData::Transportation::MICRO_TRANS);
 
+    if (workflow.loadProvision(PROVISION_CONFIG_FILE) == false)
+    {
+        Debug::critical(__FILE__, __LINE__, __func__, "invalid provision data: %s\n", PROVISION_CONFIG_FILE);
+        exit(0);
+    }
+
     Controller controller(epayment, workflow, gui);
 
     Debug::info(__FILE__, __LINE__, __func__, "epayment library version: %s\n", epayment.getVersion().c_str());
-    if (epayment.setMandiriSamConfig(1, "04A1F155E72EF8A2", "0019", "123456789012345", "32050100") == false)
+
+    const PaymentAcceptance &p = workflow.getProvision().getData().getPaymentAcceptance();
+
+    if (p.getEmoney().getSlot() > 0)
+        if (epayment.setMandiriSamConfig(
+                p.getEmoney().getSlot(),
+                p.getEmoney().getPIN().c_str(),
+                p.getEmoney().getIID().c_str(),
+                p.getEmoney().getMID().c_str(),
+                p.getEmoney().getTID().c_str()) == false)
+        {
+            return 1;
+        }
+    if (p.getTapcash().getSlot() > 0)
+        if (epayment.setBNISamConfig(
+                p.getTapcash()
+                    .getSlot(),
+                p.getTapcash().getMID().c_str(),
+                p.getTapcash().getTID().c_str(),
+                p.getTapcash().getMC().c_str()) == false)
+        {
+            return 1;
+        }
+    if (p.getBrizzi().getSlot() > 0)
+        if (epayment.setBRISamConfig(
+                p.getBrizzi().getSlot(),
+                p.getBrizzi().getMID().c_str(),
+                p.getBrizzi().getTID().c_str(),
+                p.getBrizzi().getProcode().c_str(),
+                1) == false)
+        {
+            return 1;
+        }
+    if (p.getFlazz().getSlot() > 0)
+        if (epayment.setBCASamConfig(
+                p.getFlazz().getSlot(),
+                (p.getFlazz().getMID().length() == 15 ? p.getFlazz().getMID().c_str() + 3 : p.getFlazz().getMID().c_str()),
+                p.getFlazz().getTID().c_str()) == false)
+        {
+            return 1;
+        }
+    if (p.getJakcard().getSlot() > 0)
     {
-        return 1;
-    }
-    if (epayment.setBNISamConfig(1, "110990000123456", "00020103", "9364851325635E65A3349BE36DF87D01") == false)
-    {
-        return 1;
-    }
-    if (epayment.setBRISamConfig(1, "110990000123456", "00020103", "000012", 1) == false)
-    {
-        return 1;
-    }
-    if (epayment.setBCASamConfig(1, "885000123456", "EPP20103") == false)
-    {
-        return 1;
-    }
-    if (epayment.setDKISamConfig(3, "000900211000006", "00003516", "20241204130301", "dki-stan.json", 1) == false)
-    {
-        return 1;
+        std::tm tmnow{};
+        char formatedTm[16]{};
+        TimeUtils::fromEpoch(&tmnow, std::time(nullptr));
+        snprintf(formatedTm,
+                 sizeof(formatedTm) - 1,
+                 "%04d%02d%02d%02d%02d%02d",
+                 tmnow.tm_year + 1900,
+                 tmnow.tm_mon + 1,
+                 tmnow.tm_mday,
+                 tmnow.tm_hour,
+                 tmnow.tm_min,
+                 tmnow.tm_sec);
+        formatedTm[14] = 0x00;
+        if (epayment.setDKISamConfig(
+                p.getJakcard().getSlot(),
+                p.getJakcard().getMID().c_str(),
+                p.getJakcard().getTID().c_str(),
+                formatedTm,
+                "dki-stan.json",
+                1) == false)
+        {
+            return 1;
+        }
     }
 
     controller.begin(

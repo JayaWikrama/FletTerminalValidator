@@ -19,6 +19,7 @@
 
 #define TRANSACTION_DATABASE DATA_DIRECTORY "/transaction.db"
 #define MAIN_APP_LOG_FILE "main_app"
+#define PROVISION_CONFIG_FILE CONFIG_DIRECTORY "/provision.json"
 
 class Gui;
 class Epayment;
