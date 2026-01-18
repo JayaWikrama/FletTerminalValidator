@@ -322,3 +322,15 @@ void UIHelper::freeServiceExpired(Gui &gui, std::time_t exp)
          "LAKUKAN PERPANJANGAN",
          ""});
 }
+
+void UIHelper::fareNotFound(Gui &gui)
+{
+    std::lock_guard<std::mutex> guard(UIHelper::mtx);
+    UIHelper::isStateProcessing = false;
+    gui.message.show(
+        {"TARIF",
+         " ",
+         "TIDAK",
+         "DITEMUKAN",
+         ""});
+}

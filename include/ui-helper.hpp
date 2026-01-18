@@ -36,6 +36,7 @@ public:
     static void insufficientBalance(Gui &gui, unsigned int balance);
     static void blockingTime(Gui &gui);
     static void freeServiceExpired(Gui &gui, std::time_t exp);
+    static void fareNotFound(Gui &gui);
 };
 
 #endif
