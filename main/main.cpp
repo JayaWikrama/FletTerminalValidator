@@ -81,12 +81,6 @@ int main(int argc, char *argv[])
     Epayment epayment;
     WorkflowManager workflow;
 
-    workflow.setType(WorkflowManager::Workflow::DEDUCT_ON_TAP_OUT);
-    workflow.setIdentity(
-        {0x20, 0x41, 0x31, 0x32, 0x33, 0x34, 0x43, 0x43, 0x41},
-        {0x34, 0x31, 0x32, 0x30, 0x30, 0x31},
-        CardData::Transportation::MICRO_TRANS);
-
     if (workflow.loadProvision(PROVISION_CONFIG_FILE) == false)
     {
         Debug::critical(__FILE__, __LINE__, __func__, "invalid provision data: %s\n", PROVISION_CONFIG_FILE);
