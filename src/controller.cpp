@@ -459,7 +459,8 @@ void Controller::routine()
             std::this_thread::sleep_for(std::chrono::milliseconds(1500));
         }
         Debug::moveLogHistoryToFile();
-        UIHelper::reset(this->gui, 1);
+        const SingleTripFare &singleTripFare = this->workflow.getProvision().getData().getPriceInformation().getSingleTrip();
+        UIHelper::reset(this->gui, singleTripFare.getPrice());
     }
 }
 
@@ -500,6 +501,9 @@ void Controller::begin(std::function<void(Epayment &epayment, WorkflowManager &w
             {
                 std::lock_guard<std::mutex> guard(this->mtx);
                 preSetup(this->epayment, this->workflow, this->gui);
+
+                const SingleTripFare &singleTripFare = this->workflow.getProvision().getData().getPriceInformation().getSingleTrip();
+                UIHelper::reset(this->gui, singleTripFare.getPrice());
             }
             while (this->isRuning())
             {
