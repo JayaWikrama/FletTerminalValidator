@@ -29,6 +29,7 @@ public:
 
     static void successTapOutWithDeduct(Gui &gui, unsigned int amount, unsigned int baseAmount, unsigned int balance, TariffType type, std::time_t exp = 0);
     static void successTapInWithoutDeduct(Gui &gui, unsigned int balance, UIHelper::TariffType type, std::time_t exp = 0);
+    static void successResetTapIn(Gui &gui, unsigned int amount, unsigned int baseAmount, unsigned int balance, TariffType type, std::time_t exp = 0);
 
     static void failedToReadCard(Gui &gui, const std::string &err);
     static void failedToWriteCard(Gui &gui, const std::string &err);

@@ -251,6 +251,47 @@ void UIHelper::successTapInWithoutDeduct(Gui &gui, unsigned int balance, UIHelpe
     }
 }
 
+void UIHelper::successResetTapIn(Gui &gui, unsigned int amount, unsigned int baseAmount, unsigned int balance, UIHelper::TariffType type, std::time_t exp)
+{
+    std::lock_guard<std::mutex> guard(UIHelper::mtx);
+    UIHelper::isStateProcessing = false;
+    switch (type)
+    {
+    case UIHelper::TariffType::REGULER:
+        gui.message.show(
+            {formatRupiah(baseAmount, "TARIF REGULAR"),
+             "RESET + TAP-IN SUKSES",
+             " ",
+             formatRupiah(amount, "TERPOTONG"),
+             formatRupiah(balance, "SALDO ANDA")});
+        break;
+    case UIHelper::TariffType::JAKLINGKO:
+        gui.message.show(
+            {formatRupiah(baseAmount, "TARIF REGULAR"),
+             "RESET + TAP-IN SUKSES JAKLINGKO",
+             " ",
+             formatRupiah(amount, "TERPOTONG"),
+             formatRupiah(balance, "SALDO ANDA")});
+        break;
+    case UIHelper::TariffType::FREE:
+        gui.message.show(
+            {"RESET + TAP-IN SUKSES",
+             formatDate(exp, "BERLAKU s/d"),
+             "LAYANAN GRATIS",
+             "PEMPROV DKI JAKARTA",
+             " "});
+        break;
+    default:
+        gui.message.show(
+            {formatRupiah(baseAmount, "TARIF REGULAR"),
+             "RESET + TAP-IN SUKSES",
+             " ",
+             formatRupiah(amount, "TERPOTONG"),
+             formatRupiah(balance, "SALDO ANDA")});
+        break;
+    }
+}
+
 void UIHelper::failedToReadCard(Gui &gui, const std::string &err)
 {
     std::lock_guard<std::mutex> guard(UIHelper::mtx);

@@ -108,19 +108,30 @@ bool Controller::processAttachedCard(Duration &duration)
                         else if (refUserData.isCardFreeServices())
                             type = UIHelper::TariffType::FREE;
 
-                        UIHelper::successTapInWithDeduct(this->gui,
-                                                         rules.getFinalFare(refUserData.isCardFreeServices(), refUserData.isCardOKOTrip(), refUserData.getSubsidyAccumulation()),
-                                                         rules.getFinalFare(refUserData.isCardFreeServices(), refUserData.isCardOKOTrip(), refUserData.getSubsidyAccumulation()),
-                                                         this->epayment.getLastBalance(),
-                                                         type,
-                                                         refUserData.freeService.expireOn);
+                        UIHelper::successResetTapIn(this->gui,
+                                                    rules.getFinalFare(refUserData.isCardFreeServices(), refUserData.isCardOKOTrip(), refUserData.getSubsidyAccumulation()),
+                                                    rules.getFinalFare(refUserData.isCardFreeServices(), refUserData.isCardOKOTrip(), refUserData.getSubsidyAccumulation()),
+                                                    this->epayment.getLastBalance(),
+                                                    type,
+                                                    refUserData.freeService.expireOn);
 
                         Debug::info(__FILE__, __LINE__, __func__, "last balance: %u\n", this->epayment.getLastBalance());
                         Debug::info(__FILE__, __LINE__, __func__, "transcode   : %s\n", this->epayment.getTranscodeUTF8());
 
+                        /* generate reset data */
+                        this->storeTransaction(
+                            false,
+                            true,
+                            std::time(nullptr),
+                            this->epayment.getLastBalance(),
+                            refUserData,
+                            rules,
+                            duration);
+
+                        /* generate tap-in data */
                         this->storeTransaction(
                             true,
-                            true,
+                            false,
                             std::time(nullptr),
                             this->epayment.getLastBalance(),
                             refUserData,
