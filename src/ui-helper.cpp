@@ -375,3 +375,15 @@ void UIHelper::fareNotFound(Gui &gui)
          "DITEMUKAN",
          ""});
 }
+
+void UIHelper::insufficientMinimumBalance(Gui &gui, unsigned int balance)
+{
+    std::lock_guard<std::mutex> guard(UIHelper::mtx);
+    UIHelper::isStateProcessing = false;
+    gui.message.show(
+        {"SALDO MINIMUM KURANG",
+         formatRupiah(balance, "SALDO ANDA"),
+         " ",
+         "SILAHKAN ISI SALDO",
+         "TERIMA KASIH"});
+}

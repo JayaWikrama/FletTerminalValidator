@@ -84,7 +84,7 @@ bool Controller::processAttachedCard(Duration &duration)
             this->epayment.getBank(),
             (this->epayment.getIssuer().compare("jakcard") ? this->epayment.getIssuer() : "jakcard2"),
             cardNumber,
-            0,
+            999999,
             userData,
             interop,
             expireOn)
@@ -264,37 +264,60 @@ bool Controller::processAttachedCard(Duration &duration)
         .onTapInWithoutDeduct(
             [this, &result, &userData, &duration](const CardData &refUserData, const std::array<unsigned char, 64> &toWrite, const TransactionRules &rules)
             {
-                int cardBalance = 0;
-                result = this->epayment.writeUserData<64>(toWrite, userData);
+                int cardBalance = this->epayment.getBalance();
+                duration.checkPoint("get balance operation on tap in without deduct");
+                result = (cardBalance >= 0);
+                Debug::info(__FILE__, __LINE__, __func__, "balance: %u\n", cardBalance);
+
+                const TransJakartaFare *calculatedTransJakartaFare = rules.getCalculatedFare();
+                if (calculatedTransJakartaFare)
+                {
+                    Debug::info(__FILE__, __LINE__, __func__, "minimum balance: %u\n", calculatedTransJakartaFare->getTicketRules().getMinimalBalance());
+                    if (result)
+                    {
+                        if (cardBalance < calculatedTransJakartaFare->getTicketRules().getMinimalBalance())
+                        {
+                            result = false;
+                            Debug::error(__FILE__, __LINE__, __func__, "insufficient minimum balance\n");
+                            UIHelper::insufficientMinimumBalance(this->gui, cardBalance);
+                            return;
+                        }
+                    }
+                }
                 if (result)
                 {
-                    duration.checkPoint("write user data success");
-                    cardBalance = this->epayment.getBalance();
-                    duration.checkPoint("get balance operation on tap in without deduct");
-                    result = (cardBalance >= 0);
-                    Debug::info(__FILE__, __LINE__, __func__, "balance: %u\n", cardBalance);
+                    result = this->epayment.writeUserData<64>(toWrite, userData);
+                    if (result)
+                    {
+                        duration.checkPoint("write user data success");
 
-                    UIHelper::TariffType type = UIHelper::TariffType::REGULER;
+                        UIHelper::TariffType type = UIHelper::TariffType::REGULER;
 
-                    if (refUserData.isCardOKOTrip())
-                        type = UIHelper::TariffType::JAKLINGKO;
-                    else if (refUserData.isCardFreeServices())
-                        type = UIHelper::TariffType::FREE;
+                        if (refUserData.isCardOKOTrip())
+                            type = UIHelper::TariffType::JAKLINGKO;
+                        else if (refUserData.isCardFreeServices())
+                            type = UIHelper::TariffType::FREE;
 
-                    UIHelper::successTapInWithoutDeduct(this->gui, cardBalance, type, refUserData.freeService.expireOn);
+                        UIHelper::successTapInWithoutDeduct(this->gui, cardBalance, type, refUserData.freeService.expireOn);
 
-                    this->storeTransaction(
-                        true,
-                        false,
-                        std::time(nullptr),
-                        cardBalance,
-                        refUserData,
-                        rules,
-                        duration);
+                        this->storeTransaction(
+                            true,
+                            false,
+                            std::time(nullptr),
+                            cardBalance,
+                            refUserData,
+                            rules,
+                            duration);
+                    }
+                    else
+                    {
+                        duration.checkPoint("write user data failed");
+                        UIHelper::failedToWriteCard(this->gui, "1004");
+                    }
                 }
                 else
                 {
-                    duration.checkPoint("write user data failed");
+                    duration.checkPoint("get balance failed");
                     UIHelper::failedToWriteCard(this->gui, "1004");
                 }
             })
@@ -380,6 +403,12 @@ bool Controller::processAttachedCard(Duration &duration)
             {
                 Debug::error(__FILE__, __LINE__, __func__, "fare not found\n");
                 UIHelper::fareNotFound(this->gui);
+            })
+        .onInsufficientBalance(
+            [this](const std::array<unsigned char, 64> &userData)
+            {
+                Debug::error(__FILE__, __LINE__, __func__, "insufficient minimum balance\n");
+                UIHelper::insufficientMinimumBalance(this->gui, 0);
             });
     return result;
 }
