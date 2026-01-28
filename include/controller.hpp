@@ -14,6 +14,7 @@
 #define DATA_DIRECTORY FTV_WORKING_DIRECTORY "/data"
 #define LOG_DIRECTORY FTV_WORKING_DIRECTORY "/log"
 
+#define COUNTER_DATA_DIRECTORY DATA_DIRECTORY "/counter"
 #define MAIN_APP_LOG_DIRECTORY LOG_DIRECTORY "/main"
 #define EPAYMENT_MODULE_LOG_DIRECTORY LOG_DIRECTORY "/epayment"
 
@@ -27,6 +28,7 @@ class WorkflowManager;
 class TransactionRules;
 class CardData;
 class Duration;
+class Counter;
 
 class Controller
 {
@@ -36,6 +38,7 @@ private:
     WorkflowManager &workflow;
     Gui &gui;
     std::unique_ptr<std::thread> th;
+    std::unique_ptr<Counter> counter;
     mutable std::mutex mtx;
 
     bool processAttachedCard(Duration &duration);

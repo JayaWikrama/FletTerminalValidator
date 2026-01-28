@@ -1,6 +1,7 @@
 #include <thread>
 #include <algorithm>
 #include "ui-helper.hpp"
+#include "counter.hpp"
 #include "gui/include/gui.hpp"
 
 bool UIHelper::isStateProcessing = false;
@@ -54,6 +55,20 @@ void UIHelper::reset(Gui &gui, unsigned int amount)
     gui.labelCardNumber.hide();
     gui.labelBalance.hide();
     gui.message.hide();
+}
+
+void UIHelper::updateCounter(Gui &gui, const Counter *counter)
+{
+    std::lock_guard<std::mutex> guard(UIHelper::mtx);
+    if (counter)
+    {
+        gui.transactionCounter.setTapInRegularCounter(counter->getTotalTapInRegular());
+        gui.transactionCounter.setTapInEconomicalCounter(counter->getTotalTapInEconomy());
+        gui.transactionCounter.setTapInFreeCounter(counter->getTotalTapInFreeService());
+        gui.transactionCounter.setTapOutCounter(counter->getTotalTapOut());
+        gui.transactionPendingSummary.setPendingCounter(counter->getTotalPending());
+        gui.transactionPendingSummary.setSentCounter(counter->getTotalSent());
+    }
 }
 
 void UIHelper::processingCard(Gui &gui)

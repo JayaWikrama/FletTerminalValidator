@@ -4,6 +4,7 @@
 #include <random>
 #include <sstream>
 #include <iomanip>
+#include "counter.hpp"
 #include "controller.hpp"
 #include "ui-helper.hpp"
 #include "duration.hpp"
@@ -504,12 +505,21 @@ void Controller::routine()
     }
 }
 
+void Controller::reloadCounter()
+{
+    std::string counterPath = Counter::determineConfigPath(COUNTER_DATA_DIRECTORY, std::time(nullptr));
+    this->counter.reset(new Counter(COUNTER_DATA_DIRECTORY, counterPath));
+}
+
 Controller::Controller(Epayment &epayment, WorkflowManager &workflow, Gui &gui) : isRun(false),
                                                                                   epayment(epayment),
                                                                                   workflow(workflow),
                                                                                   gui(gui),
                                                                                   th(),
-                                                                                  mtx() {}
+                                                                                  mtx()
+{
+    this->reloadCounter();
+}
 
 Controller::~Controller()
 {
@@ -544,6 +554,10 @@ void Controller::begin(std::function<void(Epayment &epayment, WorkflowManager &w
 
                 const SingleTripFare &singleTripFare = this->workflow.getProvision().getData().getPriceInformation().getSingleTrip();
                 UIHelper::reset(this->gui, singleTripFare.getPrice());
+                if (this->counter.get())
+                    UIHelper::updateCounter(this->gui, this->counter.get());
+                else
+                    Debug::warning(__FILE__, __LINE__, __func__, "missing counter\n");
             }
             while (this->isRuning())
             {
