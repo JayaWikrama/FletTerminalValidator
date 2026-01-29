@@ -1,0 +1,137 @@
+#include "error-code.hpp"
+
+std::string ErrorCode::toString(const ErrorCode::Code &errorCode)
+{
+    switch (errorCode)
+    {
+    // BRI
+    case Code::BRI_A1_READ_MEMORY_ERROR:
+        return "A1";
+    case Code::BRI_A2_TAP_BELOW_ONE_MINUTE:
+        return "A2";
+    case Code::BRI_A3_INSUFFICIENT_BALANCE:
+        return "A3";
+    case Code::BRI_A4_TAP_CODE_NOT_FOUND:
+        return "A4";
+    case Code::BRI_A5_TAP_CHECK_EXCEPTION:
+        return "A5";
+    case Code::BRI_A6_WRITE_MEMORY_ERROR:
+        return "A6";
+    case Code::BRI_A7_WRITE_BLOCK_EXCEPTION:
+        return "A7";
+    case Code::BRI_A8_POWER_SLOT_SAM_ERROR:
+        return "A8";
+    case Code::BRI_A9_OPEN_SLOT_SAM_ERROR:
+        return "A9";
+    case Code::BRI_AA_BALANCE_CHECK_EXCEPTION:
+        return "AA";
+
+    // BNI
+    case Code::BNI_B1_POWER_SLOT_SAM_ERROR:
+        return "B1";
+    case Code::BNI_B2_OPEN_SLOT_SAM_ERROR:
+        return "B2";
+    case Code::BNI_B3_INSUFFICIENT_BALANCE:
+        return "B3";
+    case Code::BNI_B4_TAP_CODE_NOT_FOUND:
+        return "B4";
+    case Code::BNI_B5_READ_MEMORY_ERROR:
+        return "B5";
+    case Code::BNI_B6_TAP_CHECK_EXCEPTION:
+        return "B6";
+    case Code::BNI_B7_WRITE_MEMORY_ERROR:
+        return "B7";
+    case Code::BNI_B8_WRITE_BLOCK_EXCEPTION:
+        return "B8";
+    case Code::BNI_B9_TAP_BELOW_ONE_MINUTE:
+        return "B9";
+    case Code::BNI_BA_BALANCE_CHECK_EXCEPTION:
+        return "BA";
+
+    // DKI
+    case Code::DKI_C1_POWER_SLOT_SAM_ERROR:
+        return "C1";
+    case Code::DKI_C2_OPEN_SLOT_SAM_ERROR:
+        return "C2";
+    case Code::DKI_C3_BALANCE_CHECK_EXCEPTION:
+        return "C3";
+    case Code::DKI_C4_READ_MEMORY_ERROR:
+        return "C4";
+    case Code::DKI_C5_KLG_EXPIRED:
+        return "C5";
+    case Code::DKI_C6_INSUFFICIENT_BALANCE:
+        return "C6";
+    case Code::DKI_C7_TAP_CODE_NOT_FOUND:
+        return "C7";
+    case Code::DKI_C8_TAP_CHECK_EXCEPTION:
+        return "C8";
+    case Code::DKI_C9_TAP_BELOW_ONE_MINUTE:
+        return "C9";
+    case Code::DKI_CA_WRITE_MEMORY_ERROR:
+        return "CA";
+    case Code::DKI_CB_WRITE_BLOCK_EXCEPTION:
+        return "CB";
+
+    // MANDIRI
+    case Code::MANDIRI_D1_POWER_SLOT_SAM_ERROR:
+        return "D1";
+    case Code::MANDIRI_D2_OPEN_SLOT_SAM_ERROR:
+        return "D2";
+    case Code::MANDIRI_D3_BALANCE_CHECK_EXCEPTION:
+        return "D3";
+    case Code::MANDIRI_D4_TAP_BELOW_ONE_MINUTE:
+        return "D4";
+    case Code::MANDIRI_D5_INSUFFICIENT_BALANCE:
+        return "D5";
+    case Code::MANDIRI_D6_TAP_CODE_NOT_FOUND:
+        return "D6";
+    case Code::MANDIRI_D7_TAP_CHECK_EXCEPTION:
+        return "D7";
+    case Code::MANDIRI_D8_WRITE_MEMORY_ERROR:
+        return "D8";
+    case Code::MANDIRI_D9_WRITE_BLOCK_EXCEPTION:
+        return "D9";
+    case Code::MANDIRI_DA_READ_MEMORY_ERROR:
+        return "DA";
+
+    // BCA
+    case Code::BCA_E1_INIT_SAM_ERROR:
+        return "E1";
+    case Code::BCA_E2_POWER_SLOT_SAM_ERROR:
+        return "E2";
+    case Code::BCA_E3_BALANCE_CHECK_EXCEPTION:
+        return "E3";
+    case Code::BCA_E4_TAP_BELOW_ONE_MINUTE:
+        return "E4";
+    case Code::BCA_E5_INSUFFICIENT_BALANCE:
+        return "E5";
+    case Code::BCA_E6_TAP_CODE_NOT_FOUND:
+        return "E6";
+    case Code::BCA_E7_TAP_CHECK_EXCEPTION:
+        return "E7";
+    case Code::BCA_E8_WRITE_MEMORY_ERROR:
+        return "E8";
+    case Code::BCA_E9_WRITE_BLOCK_EXCEPTION:
+        return "E9";
+    case Code::BCA_EA_OPEN_SLOT_SAM_ERROR:
+        return "EA";
+    case Code::BCA_EB_READ_MEMORY_ERROR:
+        return "EB";
+
+    // GENERAL
+    case Code::GENERAL_F1_UNKNOWN_CARD:
+        return "F1";
+    case Code::GENERAL_F2_BALANCE_CHECK_EXCEPTION:
+        return "F2";
+    case Code::GENERAL_F3_CARD_NOT_DETECTED:
+        return "F3";
+    case Code::GENERAL_F4_NFC_EXCEPTION:
+        return "F4";
+    case Code::GENERAL_F5_DEVICE_NOT_REGISTERED:
+        return "F5";
+    case Code::GENERAL_F6_DEBIT_DEVICE_LOST_CONTACT:
+        return "F6";
+    }
+
+    return "UNKNOWN";
+}
