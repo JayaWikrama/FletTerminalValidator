@@ -6,6 +6,8 @@
 #include <functional>
 #include <memory>
 
+#include "error-code.hpp"
+
 #ifndef FTV_WORKING_DIRECTORY
 #define FTV_WORKING_DIRECTORY "."
 #endif
@@ -50,7 +52,53 @@ private:
                           const TransactionRules &rules,
                           Duration &duration);
 
+    bool storeErrorTransactionOnReadFailed(const std::time_t time, Duration &duration, const ErrorCode::Code &desc);
+
+    bool storeErrorTransactionOnReadSuccess(bool isTapIn,
+                                            bool isDeduct,
+                                            const std::time_t time,
+                                            const int lastBalance,
+                                            const CardData &refUserData,
+                                            const TransactionRules &rules,
+                                            Duration &duration,
+                                            const ErrorCode::Code &desc);
+
+    bool storeErrorInsufficientBalance(bool isTapIn,
+                                       bool isDeduct,
+                                       const int lastBalance,
+                                       const CardData &refUserData,
+                                       const TransactionRules &rules,
+                                       Duration &duration);
+
+    bool storeErrorGetBalance(bool isTapIn,
+                              bool isDeduct,
+                              const CardData &refUserData,
+                              const TransactionRules &rules,
+                              Duration &duration);
+
+    bool storeErrorPurchaseBalance(bool isTapIn,
+                                   bool isDeduct,
+                                   const CardData &refUserData,
+                                   const TransactionRules &rules,
+                                   Duration &duration);
+
+    bool storeErrorWriteUserData(bool isTapIn,
+                                 bool isDeduct,
+                                 const int lastBalance,
+                                 const CardData &refUserData,
+                                 const TransactionRules &rules,
+                                 Duration &duration);
+
+    bool storeErrorBlockingTime(const CardData &refUserData,
+                                const TransactionRules &rules,
+                                Duration &duration);
+
+    bool storeErrorFreeServiceExpired(const CardData &refUserData,
+                                      const TransactionRules &rules,
+                                      Duration &duration);
+
     void routine();
+    void reloadCounter();
 
 public:
     Controller(Epayment &epayment, WorkflowManager &workflow, Gui &gui);

@@ -42,6 +42,8 @@ endif()
 set(SOURCE_FILES
   src/duration.cpp
   src/ui-helper.cpp
+  src/error-code.cpp
+  src/counter.cpp
   src/controller.cpp
 )
 
