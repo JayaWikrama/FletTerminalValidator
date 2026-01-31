@@ -321,24 +321,27 @@ bool Controller::processAttachedCard(Duration &duration)
                 result = (cardBalance >= 0);
                 Debug::info(__FILE__, __LINE__, __func__, "balance: %u\n", cardBalance);
 
-                const TransJakartaFare *calculatedTransJakartaFare = rules.getCalculatedFare();
-                if (calculatedTransJakartaFare)
+                if (refUserData.isCardFreeServices() == false)
                 {
-                    Debug::info(__FILE__, __LINE__, __func__, "minimum balance: %u\n", calculatedTransJakartaFare->getTicketRules().getMinimalBalance());
-                    if (result)
+                    const TransJakartaFare *calculatedTransJakartaFare = rules.getCalculatedFare();
+                    if (calculatedTransJakartaFare)
                     {
-                        if (cardBalance < calculatedTransJakartaFare->getTicketRules().getMinimalBalance())
+                        Debug::info(__FILE__, __LINE__, __func__, "minimum balance: %u\n", calculatedTransJakartaFare->getTicketRules().getMinimalBalance());
+                        if (result)
                         {
-                            result = false;
-                            Debug::error(__FILE__, __LINE__, __func__, "insufficient minimum balance\n");
-                            UIHelper::insufficientMinimumBalance(this->gui, cardBalance);
-                            this->storeErrorInsufficientBalance(true, false, cardBalance, refUserData, rules, duration);
-                            return;
+                            if (cardBalance < calculatedTransJakartaFare->getTicketRules().getMinimalBalance())
+                            {
+                                result = false;
+                                Debug::error(__FILE__, __LINE__, __func__, "insufficient minimum balance\n");
+                                UIHelper::insufficientMinimumBalance(this->gui, cardBalance);
+                                this->storeErrorInsufficientBalance(true, false, cardBalance, refUserData, rules, duration);
+                                return;
+                            }
                         }
-                    }
-                    else
-                    {
-                        this->storeErrorGetBalance(true, false, refUserData, rules, duration);
+                        else
+                        {
+                            this->storeErrorGetBalance(true, false, refUserData, rules, duration);
+                        }
                     }
                 }
                 if (result)
