@@ -571,8 +571,8 @@ bool Controller::storeTransaction(bool isTapIn,
     tsc.setTranscode(transcode);
     tsc.setStatus("S");
     tsc.setDescription("S");
-    tsc.setTransactionInInfo(me);
-    tsc.setTransactionOutInfo(ref);
+    tsc.setTransactionInfo(me);
+    tsc.setTransactionRefInfo(ref);
     tsc.setCardData(card);
 
     Sqlite3Transaction tscdb(TRANSACTION_DATABASE);
@@ -619,9 +619,9 @@ bool Controller::storeTransaction(bool isTapIn,
                 cissuer.incAmount(amount);
             }
 
-            cissuer.incPending();
             cissuer.store();
 
+            this->counter->incPending();
             this->counter->incSN();
             this->counter->storeSN();
 
@@ -668,8 +668,8 @@ bool Controller::storeErrorTransactionOnReadFailed(const std::time_t time, Durat
     tsc.setTranscode("");
     tsc.setStatus("F");
     tsc.setDescription(ErrorCode::toString(desc));
-    tsc.setTransactionInInfo(me);
-    tsc.setTransactionOutInfo(me);
+    tsc.setTransactionInfo(me);
+    tsc.setTransactionRefInfo(me);
     tsc.setCardData(card);
 
     Sqlite3Transaction tscdb(TRANSACTION_DATABASE);
@@ -727,8 +727,8 @@ bool Controller::storeErrorTransactionOnReadSuccess(bool isTapIn,
     tsc.setTranscode("");
     tsc.setStatus("F");
     tsc.setDescription(ErrorCode::toString(desc));
-    tsc.setTransactionInInfo(me);
-    tsc.setTransactionOutInfo(ref);
+    tsc.setTransactionInfo(me);
+    tsc.setTransactionRefInfo(ref);
     tsc.setCardData(card);
 
     Sqlite3Transaction tscdb(TRANSACTION_DATABASE);
@@ -940,6 +940,15 @@ void Controller::routine()
         Debug::moveLogHistoryToFile();
         const SingleTripFare &singleTripFare = this->workflow.getProvision().getData().getPriceInformation().getSingleTrip();
         UIHelper::reset(this->gui, singleTripFare.getPrice());
+    }
+
+    if (result)
+    {
+        /* check counter reload/reset requirements */
+        if (this->counter.get() == nullptr)
+            this->reloadCounter();
+        else if (counter->getCycle().isSameCycle(std::time(nullptr)) == false)
+            this->reloadCounter();
     }
 }
 

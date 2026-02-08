@@ -3,6 +3,8 @@
 #include <sys/types.h>
 #include <cerrno>
 #include "counter.hpp"
+#include "controller.hpp"
+#include "tscdata/include/sqlite3-transaction.hpp"
 #include "epayment/include/card-access.hpp"
 #include "utils/include/nlohmann/json.hpp"
 #include "utils/include/debug.hpp"
@@ -30,8 +32,6 @@ Counter::Issuer::Issuer(const std::string &filePath) : tapInRegular(0U),
                                                        tapInEconomy(0U),
                                                        tapInFreeService(0U),
                                                        tapOut(0U),
-                                                       sent(0U),
-                                                       pending(0U),
                                                        amount(0ULL),
                                                        filePath(filePath),
                                                        mutex()
@@ -74,19 +74,6 @@ void Counter::Issuer::incAmount(const unsigned int amount)
     this->amount += amount;
 }
 
-void Counter::Issuer::incPending()
-{
-    std::lock_guard<std::mutex> guard(this->mutex);
-    this->pending++;
-}
-
-void Counter::Issuer::incSent()
-{
-    std::lock_guard<std::mutex> guard(this->mutex);
-    this->sent++;
-    this->pending--;
-}
-
 unsigned int Counter::Issuer::getTapInRegular() const
 {
     std::lock_guard<std::mutex> guard(this->mutex);
@@ -109,18 +96,6 @@ unsigned int Counter::Issuer::getTapOut() const
 {
     std::lock_guard<std::mutex> guard(this->mutex);
     return this->tapOut;
-}
-
-unsigned int Counter::Issuer::getPending() const
-{
-    std::lock_guard<std::mutex> guard(this->mutex);
-    return this->sent;
-}
-
-unsigned int Counter::Issuer::getSent() const
-{
-    std::lock_guard<std::mutex> guard(this->mutex);
-    return this->pending;
 }
 
 unsigned long long int Counter::Issuer::getAmount() const
@@ -151,13 +126,11 @@ void Counter::Issuer::load()
     if (!j.is_object())
         throw std::runtime_error(Error::common(__FILE__, __LINE__, __func__, "configuuration in \"" + filePath + "\" is not JSON object"));
 
-    Counter::readUnsignedSafe(j, "tap_in_regular", tapInRegular);
-    Counter::readUnsignedSafe(j, "tap_in_economy", tapInEconomy);
-    Counter::readUnsignedSafe(j, "tap_in_free_service", tapInFreeService);
-    Counter::readUnsignedSafe(j, "tap_out", tapOut);
-    Counter::readUnsignedSafe(j, "sent", sent);
-    Counter::readUnsignedSafe(j, "pending", pending);
-    Counter::readUnsignedSafe(j, "amount", amount);
+    Counter::readUnsignedSafe(j, "tap_in_regular", this->tapInRegular);
+    Counter::readUnsignedSafe(j, "tap_in_economy", this->tapInEconomy);
+    Counter::readUnsignedSafe(j, "tap_in_free_service", this->tapInFreeService);
+    Counter::readUnsignedSafe(j, "tap_out", this->tapOut);
+    Counter::readUnsignedSafe(j, "amount", this->amount);
 
     Debug::info(__FILE__, __LINE__, __func__, "load %s configuartion done\n", this->filePath.c_str());
 }
@@ -168,13 +141,11 @@ bool Counter::Issuer::store()
 
     nlohmann::json j;
 
-    j["tap_in_regular"] = tapInRegular;
-    j["tap_in_economy"] = tapInEconomy;
-    j["tap_in_free_service"] = tapInFreeService;
-    j["tap_out"] = tapOut;
-    j["sent"] = sent;
-    j["pending"] = pending;
-    j["amount"] = amount;
+    j["tap_in_regular"] = this->tapInRegular;
+    j["tap_in_economy"] = this->tapInEconomy;
+    j["tap_in_free_service"] = this->tapInFreeService;
+    j["tap_out"] = this->tapOut;
+    j["amount"] = this->amount;
 
     std::ofstream file(filePath, std::ios::trunc);
     if (!file.is_open())
@@ -199,8 +170,6 @@ bool Counter::Issuer::reset()
     this->tapInEconomy = 0U;
     this->tapInFreeService = 0U;
     this->tapOut = 0U;
-    this->sent = 0U;
-    this->pending = 0U;
     this->amount = 0ULL;
 }
 
@@ -256,7 +225,9 @@ void Counter::readUnsignedSafe(const nlohmann::json &j, const char *key, T &targ
 template void Counter::readUnsignedSafe(const nlohmann::json &j, const char *key, unsigned int &target);
 template void Counter::readUnsignedSafe(const nlohmann::json &j, const char *key, unsigned long long int &target);
 
-Counter::Counter(const std::string &snPath, const std::string &counterPath) : sn(0),
+Counter::Counter(const std::string &snPath, const std::string &counterPath) : sn(0U),
+                                                                              sent(0U),
+                                                                              pending(0U),
                                                                               cycle(),
                                                                               emoney(counterPath + "/emoney.json"),
                                                                               brizzi(counterPath + "/brizzi.json"),
@@ -278,6 +249,19 @@ void Counter::incSN()
 {
     std::lock_guard<std::mutex> guard(this->mutex);
     this->sn++;
+}
+
+void Counter::incPending()
+{
+    std::lock_guard<std::mutex> guard(this->mutex);
+    this->pending++;
+}
+
+void Counter::incSent()
+{
+    std::lock_guard<std::mutex> guard(this->mutex);
+    this->sent++;
+    this->pending--;
 }
 
 const Counter::Cycle &Counter::getCycle() const
@@ -389,23 +373,13 @@ unsigned int Counter::getTotalTapOut() const
 unsigned int Counter::getTotalPending() const
 {
     std::lock_guard<std::mutex> guard(this->mutex);
-    unsigned int result = this->emoney.getPending() +
-                          this->brizzi.getPending() +
-                          this->tapcash.getPending() +
-                          this->flazz.getPending() +
-                          this->jakcard.getPending();
-    return result;
+    return this->pending;
 }
 
 unsigned int Counter::getTotalSent() const
 {
     std::lock_guard<std::mutex> guard(this->mutex);
-    unsigned int result = this->emoney.getSent() +
-                          this->brizzi.getSent() +
-                          this->tapcash.getSent() +
-                          this->flazz.getSent() +
-                          this->jakcard.getSent();
-    return result;
+    return this->sent;
 }
 
 unsigned long long int Counter::getTotalAmount() const
@@ -442,7 +416,38 @@ void Counter::loadSN()
         throw std::runtime_error(Error::common(__FILE__, __LINE__, __func__, "configuuration in \"" + filePath + "\" is not JSON object"));
 
     Counter::readUnsignedSafe(j, "sn", this->sn);
-
+    try
+    {
+        Counter::readUnsignedSafe(j, "sent", this->sent);
+        Counter::readUnsignedSafe(j, "pending", this->pending);
+    }
+    catch (const std::exception &e)
+    {
+        Debug::error(__FILE__, __LINE__, __func__, "%s!\n", e.what());
+        Sqlite3Transaction tscdb(TRANSACTION_DATABASE);
+        int tmpnum = tscdb.getTotalPending();
+        if (tmpnum >= 0)
+        {
+            Debug::info(__FILE__, __LINE__, __func__, "set value to %d (from local database)\n", tmpnum);
+            this->pending = tmpnum;
+        }
+        else
+        {
+            Debug::error(__FILE__, __LINE__, __func__, "set value to 0 (failed to load from local database)\n");
+            this->pending = tmpnum;
+        }
+        tmpnum = tscdb.getTotalSent();
+        if (tmpnum >= 0)
+        {
+            Debug::info(__FILE__, __LINE__, __func__, "set value to %d (from local database)\n", tmpnum);
+            this->sent = tmpnum;
+        }
+        else
+        {
+            Debug::error(__FILE__, __LINE__, __func__, "set value to 0 (failed to load from local database)\n");
+            this->sent = tmpnum;
+        }
+    }
     Debug::info(__FILE__, __LINE__, __func__, "load %s configuartion done\n", this->filePath.c_str());
 }
 
@@ -453,6 +458,8 @@ bool Counter::storeSN()
     nlohmann::json j;
 
     j["sn"] = this->sn;
+    j["sent"] = this->sent;
+    j["pending"] = this->pending;
 
     std::ofstream file(filePath, std::ios::trunc);
     if (!file.is_open())

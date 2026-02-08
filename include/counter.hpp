@@ -15,8 +15,6 @@ public:
         unsigned int tapInEconomy;
         unsigned int tapInFreeService;
         unsigned int tapOut;
-        unsigned int sent;
-        unsigned int pending;
         unsigned long long int amount;
         std::string filePath;
         mutable std::mutex mutex;
@@ -30,15 +28,11 @@ public:
         void incTapInFreeService();
         void incTapOut();
         void incAmount(const unsigned int amount);
-        void incPending();
-        void incSent();
 
         unsigned int getTapInRegular() const;
         unsigned int getTapInEconomy() const;
         unsigned int getTapinFreeService() const;
         unsigned int getTapOut() const;
-        unsigned int getPending() const;
-        unsigned int getSent() const;
         unsigned long long int getAmount() const;
 
         void load();
@@ -63,6 +57,8 @@ public:
 
 private:
     unsigned int sn;
+    unsigned int sent;
+    unsigned int pending;
     Cycle cycle;
     Issuer emoney;
     Issuer brizzi;
@@ -80,6 +76,8 @@ public:
     ~Counter();
 
     void incSN();
+    void incPending();
+    void incSent();
 
     const Cycle &getCycle() const;
     Issuer &getEmoney();
