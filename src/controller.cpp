@@ -8,6 +8,7 @@
 #include "controller.hpp"
 #include "ui-helper.hpp"
 #include "duration.hpp"
+#include "uncomplete-write-handler.hpp"
 #include "gui/include/gui.hpp"
 #include "epayment/include/epayment.hpp"
 #include "workflow/include/workflow-manager.hpp"
@@ -93,14 +94,38 @@ bool Controller::processAttachedCard(Duration &duration)
             [this, &result, &userData, &duration](const CardData &refUserData, const std::array<unsigned char, 64> &toWrite, const TransactionRules &rules)
             {
                 int cardBalance = 0;
+                bool fromRecovery = false;
+                std::string transcode = "";
                 const unsigned int amountDeduct = rules.getFinalFare(refUserData.isCardFreeServices(), refUserData.isCardOKOTrip(), refUserData.getSubsidyAccumulation());
                 this->epayment.setAmount(amountDeduct);
                 if (amountDeduct > 0)
                 {
-                    result = this->epayment.deduct();
-                    if (result)
+                    this->uncompleWriteHandler.contain(
+                        refUserData.getCardNumber(),
+                        [this, &cardBalance, &transcode, &result, &fromRecovery](const UncompleteWriteData &d)
+                        {
+                            cardBalance = d.getLastBalance();
+                            transcode = d.getTranscode();
+                            result = true;
+                            fromRecovery = true;
+                        });
+                    if (result == false)
                     {
-                        cardBalance = this->epayment.getLastBalance();
+                        result = this->epayment.deduct();
+                        if (result)
+                        {
+                            cardBalance = this->epayment.getLastBalance();
+                            transcode = this->epayment.getTranscode();
+                            this->uncompleWriteHandler.insert(amountDeduct,
+                                                              cardBalance,
+                                                              std::time(nullptr),
+                                                              refUserData.getCardNumber(),
+                                                              this->epayment.getActiveMID(),
+                                                              this->epayment.getActiveTID(),
+                                                              this->epayment.getIssuer(),
+                                                              this->epayment.getBank(),
+                                                              transcode);
+                        }
                     }
                 }
                 else
@@ -131,7 +156,7 @@ bool Controller::processAttachedCard(Duration &duration)
                                                     refUserData.freeService.expireOn);
 
                         Debug::info(__FILE__, __LINE__, __func__, "last balance: %u\n", cardBalance);
-                        Debug::info(__FILE__, __LINE__, __func__, "transcode   : %s\n", amountDeduct > 0 ? this->epayment.getTranscodeUTF8() : "custom");
+                        Debug::info(__FILE__, __LINE__, __func__, "transcode   : %s\n", amountDeduct > 0 ? transcode.c_str() : "custom");
 
                         /* generate reset data */
                         this->storeTransaction(
@@ -141,6 +166,7 @@ bool Controller::processAttachedCard(Duration &duration)
                             cardBalance,
                             refUserData,
                             rules,
+                            transcode,
                             duration);
 
                         /* generate tap-in data */
@@ -151,10 +177,13 @@ bool Controller::processAttachedCard(Duration &duration)
                             cardBalance,
                             refUserData,
                             rules,
+                            transcode,
                             duration);
 
-                        if (amountDeduct > 0)
+                        if (amountDeduct > 0 && fromRecovery == false)
                             this->epayment.purchaseCommit();
+
+                        this->uncompleWriteHandler.setUsed(refUserData.getCardNumber());
                     }
                     else
                     {
@@ -192,14 +221,38 @@ bool Controller::processAttachedCard(Duration &duration)
             [this, &result, &userData, &duration](const CardData &refUserData, const std::array<unsigned char, 64> &toWrite, const TransactionRules &rules)
             {
                 int cardBalance = 0;
+                bool fromRecovery = false;
+                std::string transcode = "";
                 const unsigned int amountDeduct = rules.getFinalFare(refUserData.isCardFreeServices(), refUserData.isCardOKOTrip(), refUserData.getSubsidyAccumulation());
                 this->epayment.setAmount(amountDeduct);
                 if (amountDeduct > 0)
                 {
-                    result = this->epayment.deduct();
-                    if (result)
+                    this->uncompleWriteHandler.contain(
+                        refUserData.getCardNumber(),
+                        [this, &cardBalance, &transcode, &result, &fromRecovery](const UncompleteWriteData &d)
+                        {
+                            cardBalance = d.getLastBalance();
+                            transcode = d.getTranscode();
+                            result = true;
+                            fromRecovery = true;
+                        });
+                    if (result == false)
                     {
-                        cardBalance = this->epayment.getLastBalance();
+                        result = this->epayment.deduct();
+                        if (result)
+                        {
+                            cardBalance = this->epayment.getLastBalance();
+                            transcode = this->epayment.getTranscode();
+                            this->uncompleWriteHandler.insert(amountDeduct,
+                                                              cardBalance,
+                                                              std::time(nullptr),
+                                                              refUserData.getCardNumber(),
+                                                              this->epayment.getActiveMID(),
+                                                              this->epayment.getActiveTID(),
+                                                              this->epayment.getIssuer(),
+                                                              this->epayment.getBank(),
+                                                              transcode);
+                        }
                     }
                 }
                 else
@@ -229,7 +282,7 @@ bool Controller::processAttachedCard(Duration &duration)
                                                          refUserData.freeService.expireOn);
 
                         Debug::info(__FILE__, __LINE__, __func__, "last balance: %u\n", cardBalance);
-                        Debug::info(__FILE__, __LINE__, __func__, "transcode   : %s\n", amountDeduct > 0 ? this->epayment.getTranscodeUTF8() : "custom");
+                        Debug::info(__FILE__, __LINE__, __func__, "transcode   : %s\n", amountDeduct > 0 ? transcode.c_str() : "custom");
 
                         this->storeTransaction(
                             true,
@@ -238,10 +291,13 @@ bool Controller::processAttachedCard(Duration &duration)
                             cardBalance,
                             refUserData,
                             rules,
+                            transcode,
                             duration);
 
-                        if (amountDeduct > 0)
+                        if (amountDeduct > 0 && fromRecovery == false)
                             this->epayment.purchaseCommit();
+
+                        this->uncompleWriteHandler.setUsed(refUserData.getCardNumber());
                     }
                     else
                     {
@@ -304,6 +360,7 @@ bool Controller::processAttachedCard(Duration &duration)
                         cardBalance,
                         refUserData,
                         rules,
+                        "",
                         duration);
                 }
                 else
@@ -367,6 +424,7 @@ bool Controller::processAttachedCard(Duration &duration)
                             cardBalance,
                             refUserData,
                             rules,
+                            "",
                             duration);
                     }
                     else
@@ -387,14 +445,38 @@ bool Controller::processAttachedCard(Duration &duration)
             [this, &result, &userData, &duration](const CardData &refUserData, const std::array<unsigned char, 64> &toWrite, const TransactionRules &rules)
             {
                 int cardBalance = 0;
+                bool fromRecovery = false;
+                std::string transcode = "";
                 const unsigned int amountDeduct = rules.getFinalFare(refUserData.isCardFreeServices(), refUserData.isCardOKOTrip(), refUserData.getSubsidyAccumulation());
                 this->epayment.setAmount(amountDeduct);
                 if (amountDeduct > 0)
                 {
-                    result = this->epayment.deduct();
-                    if (result)
+                    this->uncompleWriteHandler.contain(
+                        refUserData.getCardNumber(),
+                        [this, &cardBalance, &transcode, &result, &fromRecovery](const UncompleteWriteData &d)
+                        {
+                            cardBalance = d.getLastBalance();
+                            transcode = d.getTranscode();
+                            result = true;
+                            fromRecovery = true;
+                        });
+                    if (result == false)
                     {
-                        cardBalance = this->epayment.getLastBalance();
+                        result = this->epayment.deduct();
+                        if (result)
+                        {
+                            cardBalance = this->epayment.getLastBalance();
+                            transcode = this->epayment.getTranscode();
+                            this->uncompleWriteHandler.insert(amountDeduct,
+                                                              cardBalance,
+                                                              std::time(nullptr),
+                                                              refUserData.getCardNumber(),
+                                                              this->epayment.getActiveMID(),
+                                                              this->epayment.getActiveTID(),
+                                                              this->epayment.getIssuer(),
+                                                              this->epayment.getBank(),
+                                                              transcode);
+                        }
                     }
                 }
                 else
@@ -424,7 +506,7 @@ bool Controller::processAttachedCard(Duration &duration)
                                                           refUserData.freeService.expireOn);
 
                         Debug::info(__FILE__, __LINE__, __func__, "last balance: %u\n", cardBalance);
-                        Debug::info(__FILE__, __LINE__, __func__, "transcode   : %s\n", amountDeduct > 0 ? this->epayment.getTranscodeUTF8() : "custom");
+                        Debug::info(__FILE__, __LINE__, __func__, "transcode   : %s\n", amountDeduct > 0 ? transcode.c_str() : "custom");
 
                         this->storeTransaction(
                             false,
@@ -433,10 +515,13 @@ bool Controller::processAttachedCard(Duration &duration)
                             cardBalance,
                             refUserData,
                             rules,
+                            transcode,
                             duration);
 
-                        if (amountDeduct > 0)
+                        if (amountDeduct > 0 && fromRecovery == false)
                             this->epayment.purchaseCommit();
+
+                        this->uncompleWriteHandler.setUsed(refUserData.getCardNumber());
                     }
                     else
                     {
@@ -508,6 +593,7 @@ bool Controller::storeTransaction(bool isTapIn,
                                   const int lastBalance,
                                   const CardData &refUserData,
                                   const TransactionRules &rules,
+                                  const std::string &transcodeStr,
                                   Duration &duration)
 {
     try
@@ -530,7 +616,7 @@ bool Controller::storeTransaction(bool isTapIn,
     {
         if (amount > 0)
         {
-            transcode = epayment.getTranscode();
+            transcode = transcodeStr;
         }
         else
         {
@@ -942,14 +1028,12 @@ void Controller::routine()
         UIHelper::reset(this->gui, singleTripFare.getPrice());
     }
 
-    if (result)
-    {
-        /* check counter reload/reset requirements */
-        if (this->counter.get() == nullptr)
-            this->reloadCounter();
-        else if (counter->getCycle().isSameCycle(std::time(nullptr)) == false)
-            this->reloadCounter();
-    }
+    this->uncompleWriteHandler.maintain();
+    /* check counter reload/reset requirements */
+    if (this->counter.get() == nullptr)
+        this->reloadCounter();
+    else if (counter->getCycle().isSameCycle(std::time(nullptr)) == false)
+        this->reloadCounter();
 }
 
 void Controller::reloadCounter()
@@ -962,6 +1046,7 @@ Controller::Controller(Epayment &epayment, WorkflowManager &workflow, Gui &gui) 
                                                                                   epayment(epayment),
                                                                                   workflow(workflow),
                                                                                   gui(gui),
+                                                                                  uncompleWriteHandler(10),
                                                                                   th(),
                                                                                   mtx()
 {

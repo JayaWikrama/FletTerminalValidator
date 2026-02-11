@@ -44,6 +44,7 @@ set(SOURCE_FILES
   src/ui-helper.cpp
   src/error-code.cpp
   src/counter.cpp
+  src/uncomplete-write-handler.cpp
   src/controller.cpp
 )
 

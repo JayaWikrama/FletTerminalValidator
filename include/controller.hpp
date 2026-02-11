@@ -7,6 +7,7 @@
 #include <memory>
 
 #include "error-code.hpp"
+#include "uncomplete-write-handler.hpp"
 
 #ifndef FTV_WORKING_DIRECTORY
 #define FTV_WORKING_DIRECTORY "."
@@ -39,6 +40,7 @@ private:
     Epayment &epayment;
     WorkflowManager &workflow;
     Gui &gui;
+    UncompleteWriteHandler uncompleWriteHandler;
     std::unique_ptr<std::thread> th;
     std::unique_ptr<Counter> counter;
     mutable std::mutex mtx;
@@ -50,6 +52,7 @@ private:
                           const int lastBalance,
                           const CardData &refUserData,
                           const TransactionRules &rules,
+                          const std::string &transcodeStr,
                           Duration &duration);
 
     bool storeErrorTransactionOnReadFailed(const std::time_t time, Duration &duration, const ErrorCode::Code &desc);
