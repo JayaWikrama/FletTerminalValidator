@@ -4,6 +4,7 @@
 #include <functional>
 #include <thread>
 #include <algorithm>
+#include <cstring>
 
 #include "controller.hpp"
 #include "epayment/include/epayment.hpp"
@@ -11,6 +12,7 @@
 #include "gui/include/gui.hpp"
 #include "tscdata/include/sqlite3-transaction.hpp"
 #include "communication/include/fetch-api.hpp"
+#include "communication/include/asa.hpp"
 
 #include "utils/include/debug.hpp"
 #include "utils/include/time.hpp"
@@ -43,32 +45,40 @@ std::string toTerminal(const std::array<unsigned char, 8> &tid)
 
 int main(int argc, char *argv[])
 {
+    bool isWithProvisioning = true;
     if (argc > 1)
     {
-        if (argc != 2)
+        if (strcmp(argv[1], "--without-provisioning") == 0)
         {
-            Debug::error(__FILE__, __LINE__, __func__, "command: %s <url>\n", argv[0]);
-            return 1;
+            isWithProvisioning = false;
         }
-        FetchAPI fapi(argv[1], 5, 10);
-        fapi.get()
-            .onSuccess(
-                [](const std::string &payload)
-                {
-                    Debug::info(__FILE__, __LINE__, __func__, "GET Method success\n");
-                    std::cout << payload << std::endl;
-                })
-            .onTimeout(
-                []()
-                {
-                    Debug::error(__FILE__, __LINE__, __func__, "request timeout\n");
-                })
-            .onError(
-                [](FetchAPI::ReturnCode code, const std::string &err)
-                {
-                    Debug::error(__FILE__, __LINE__, __func__, "%s\n", err.c_str());
-                });
-        return 0;
+        else
+        {
+            if (argc != 2)
+            {
+                Debug::error(__FILE__, __LINE__, __func__, "command: %s <url>\n", argv[0]);
+                return 1;
+            }
+            FetchAPI fapi(argv[1], 5, 10);
+            fapi.get()
+                .onSuccess(
+                    [](const std::string &payload)
+                    {
+                        Debug::info(__FILE__, __LINE__, __func__, "GET Method success\n");
+                        std::cout << payload << std::endl;
+                    })
+                .onTimeout(
+                    []()
+                    {
+                        Debug::error(__FILE__, __LINE__, __func__, "request timeout\n");
+                    })
+                .onError(
+                    [](FetchAPI::ReturnCode code, const std::string &err)
+                    {
+                        Debug::error(__FILE__, __LINE__, __func__, "%s\n", err.c_str());
+                    });
+            return 0;
+        }
     }
 
     Debug::setMaxLinesLogCache(1024);
@@ -80,6 +90,13 @@ int main(int argc, char *argv[])
     Gui gui;
     Epayment epayment;
     WorkflowManager workflow;
+
+    ASA asa(COMM_CONFIG_FILE);
+    asa.login();
+    if (isWithProvisioning)
+        asa.provision(PROVISION_CONFIG_FILE);
+    else
+        Debug::warning(__FILE__, __LINE__, __func__, "skip download provision.json\n");
 
     if (workflow.loadProvision(PROVISION_CONFIG_FILE) == false)
     {
