@@ -33,6 +33,8 @@ class TransactionRules;
 class CardData;
 class Duration;
 class Counter;
+class GpsHandler;
+class GsmHandler;
 
 class Controller
 {
@@ -41,6 +43,8 @@ private:
     Epayment &epayment;
     WorkflowManager &workflow;
     Gui &gui;
+    GpsHandler &gpsHandler;
+    GsmHandler &gsmHandler;
     UncompleteWriteHandler uncompleWriteHandler;
     std::unique_ptr<std::thread> th;
     std::unique_ptr<Counter> counter;
@@ -105,7 +109,7 @@ private:
     void reloadCounter();
 
 public:
-    Controller(Epayment &epayment, WorkflowManager &workflow, Gui &gui);
+    Controller(Epayment &epayment, WorkflowManager &workflow, GpsHandler &gpsHandler, GsmHandler &gsmHandler, Gui &gui);
     ~Controller();
 
     void setup(std::function<void(Epayment &epayment, WorkflowManager &workflow, Gui &gui)> handler);

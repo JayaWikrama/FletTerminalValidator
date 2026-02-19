@@ -6,6 +6,8 @@
 #include <algorithm>
 #include <cstring>
 
+#include "gps-handler.hpp"
+#include "gsm-handler.hpp"
 #include "controller.hpp"
 #include "epayment/include/epayment.hpp"
 #include "workflow/include/workflow-manager.hpp"
@@ -104,7 +106,12 @@ int main(int argc, char *argv[])
         exit(0);
     }
 
-    Controller controller(epayment, workflow, gui);
+    GpsHandler gpsHandler;
+    GsmHandler gsmHandler;
+    gpsHandler.begin();
+    gsmHandler.begin();
+
+    Controller controller(epayment, workflow, gpsHandler, gsmHandler, gui);
 
     Debug::info(__FILE__, __LINE__, __func__, "epayment library version: %s\n", epayment.getVersion().c_str());
 

@@ -102,6 +102,21 @@ void UIHelper::processingCard(Gui &gui)
         .detach();
 }
 
+void UIHelper::updateNetworkSignalStrength(Gui &gui, int signalStrength)
+{
+    std::lock_guard<std::mutex> guard(UIHelper::mtx);
+    if (signalStrength < 1)
+        gui.gsmNetworkLevel.setSignalLevel(NetworkIconManager::SignalLevel::NO_SIGNAL);
+    else if (signalStrength < 10)
+        gui.gsmNetworkLevel.setSignalLevel(NetworkIconManager::SignalLevel::WEAK_SIGNAL);
+    else if (signalStrength < 20)
+        gui.gsmNetworkLevel.setSignalLevel(NetworkIconManager::SignalLevel::QUITE_STRONG_SIGNAL);
+    else if (signalStrength <= 31)
+        gui.gsmNetworkLevel.setSignalLevel(NetworkIconManager::SignalLevel::STRONG_SIGNAL);
+    else
+        gui.gsmNetworkLevel.setSignalLevel(NetworkIconManager::SignalLevel::NO_SIGNAL);
+}
+
 void UIHelper::successTapInWithDeduct(Gui &gui, unsigned int amount, unsigned int baseAmount, unsigned int balance, UIHelper::TariffType type, std::time_t exp)
 {
     std::lock_guard<std::mutex> guard(UIHelper::mtx);

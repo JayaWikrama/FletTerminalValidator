@@ -44,6 +44,8 @@ set(SOURCE_FILES
   src/ui-helper.cpp
   src/error-code.cpp
   src/counter.cpp
+  src/gsm-handler.cpp
+  src/gps-handler.cpp
   src/uncomplete-write-handler.cpp
   src/controller.cpp
 )
@@ -77,10 +79,14 @@ target_link_libraries(${PROJECT_NAME}
     ${CMAKE_CURRENT_SOURCE_DIR}/dependency/bca/lib/libbcadllarmhf.so
     ${CMAKE_CURRENT_SOURCE_DIR}/dependency/epayment/lib/libsqlite3.a
     ${CMAKE_CURRENT_SOURCE_DIR}/dependency/reader/lib/libemptechreader.so
+    ${CMAKE_CURRENT_SOURCE_DIR}/dependency/reader/lib/libhardware.so
+    ${CMAKE_CURRENT_SOURCE_DIR}/dependency/gps/lib/libgps.so
     ${CMAKE_CURRENT_SOURCE_DIR}/dependency/gui/lib/libgui.so
     ${CMAKE_CURRENT_SOURCE_DIR}/dependency/communication/lib/libcommunication.so
     ${CMAKE_CURRENT_SOURCE_DIR}/dependency/communication/lib/libcurl.so.4.6.0
     ${CMAKE_CURRENT_SOURCE_DIR}/dependency/lzma/lib/liblzma.a
+    ${CMAKE_CURRENT_SOURCE_DIR}/dependency/serial/lib/libSerialink.a
+    ${CMAKE_CURRENT_SOURCE_DIR}/dependency/serial/lib/libDataFrame.a
 )
 target_link_libraries(${PROJECT_NAME}
   PUBLIC

@@ -5,6 +5,8 @@
 #include <sstream>
 #include <iomanip>
 #include "counter.hpp"
+#include "gps-handler.hpp"
+#include "gsm-handler.hpp"
 #include "controller.hpp"
 #include "ui-helper.hpp"
 #include "duration.hpp"
@@ -610,6 +612,15 @@ bool Controller::storeTransaction(bool isTapIn,
 
     const unsigned int amount = rules.getFinalFare(refUserData.isCardFreeServices(), refUserData.isCardOKOTrip(), refUserData.getSubsidyAccumulation());
     const TransJakartaFare *transjakartaFare = rules.getCalculatedFare();
+    double lat = 0.0;
+    double lon = 0.0;
+
+    this->gpsHandler.access(
+        [&lat, &lon](const Nmea &nmea)
+        {
+            lat = nmea.getRmc().getLatitude();
+            lon = nmea.getRmc().getLongitude();
+        });
 
     std::string transcode = "";
     if (isDeduct)
@@ -648,7 +659,7 @@ bool Controller::storeTransaction(bool isTapIn,
     tsc.setFare(isDeduct ? amount : 0);
     tsc.setBalanceAfterTransaction(lastBalance);
     tsc.setProcessingTimeMs(duration.getTotalDurationInMs());
-    tsc.setCoordinates(0.0, 0.0);
+    tsc.setCoordinates(lat, lon);
     tsc.setTransactionTime(std::time(nullptr));
     tsc.setTransactionStoredTime(std::time(nullptr));
     tsc.setUUID(generateTimeBasedUUID(tsc.getTransactionTime()));
@@ -737,6 +748,15 @@ bool Controller::storeErrorTransactionOnReadFailed(const std::time_t time, Durat
     card.setBank(this->epayment.getBank());
 
     TransactionData tsc(true);
+    double lat = 0.0;
+    double lon = 0.0;
+
+    this->gpsHandler.access(
+        [&lat, &lon](const Nmea &nmea)
+        {
+            lat = nmea.getRmc().getLatitude();
+            lon = nmea.getRmc().getLongitude();
+        });
 
     tsc.setIntegratorId(1);
     tsc.setMinimumBalance(0);
@@ -745,7 +765,7 @@ bool Controller::storeErrorTransactionOnReadFailed(const std::time_t time, Durat
     tsc.setFare(0);
     tsc.setBalanceAfterTransaction(0);
     tsc.setProcessingTimeMs(duration.getTotalDurationInMs());
-    tsc.setCoordinates(0.0, 0.0);
+    tsc.setCoordinates(lat, lon);
     tsc.setTransactionTime(std::time(nullptr));
     tsc.setTransactionStoredTime(std::time(nullptr));
     tsc.setUUID(generateTimeBasedUUID(tsc.getTransactionTime()));
@@ -796,6 +816,15 @@ bool Controller::storeErrorTransactionOnReadSuccess(bool isTapIn,
     card.setBank(this->epayment.getBank());
 
     TransactionData tsc(isTapIn);
+    double lat = 0.0;
+    double lon = 0.0;
+
+    this->gpsHandler.access(
+        [&lat, &lon](const Nmea &nmea)
+        {
+            lat = nmea.getRmc().getLatitude();
+            lon = nmea.getRmc().getLongitude();
+        });
 
     tsc.setIntegratorId(1);
     tsc.setMinimumBalance(transjakartaFare == nullptr ? 0 : transjakartaFare->getTicketRules().getMinimalBalance());
@@ -804,7 +833,7 @@ bool Controller::storeErrorTransactionOnReadSuccess(bool isTapIn,
     tsc.setFare(isDeduct ? amount : 0);
     tsc.setBalanceAfterTransaction(lastBalance);
     tsc.setProcessingTimeMs(duration.getTotalDurationInMs());
-    tsc.setCoordinates(0.0, 0.0);
+    tsc.setCoordinates(lat, lon);
     tsc.setTransactionTime(std::time(nullptr));
     tsc.setTransactionStoredTime(std::time(nullptr));
     tsc.setUUID(generateTimeBasedUUID(tsc.getTransactionTime()));
@@ -1034,6 +1063,8 @@ void Controller::routine()
         this->reloadCounter();
     else if (counter->getCycle().isSameCycle(std::time(nullptr)) == false)
         this->reloadCounter();
+    /* update GSM icon */
+    UIHelper::updateNetworkSignalStrength(this->gui, this->gsmHandler.getSignalStrength());
 }
 
 void Controller::reloadCounter()
@@ -1042,13 +1073,19 @@ void Controller::reloadCounter()
     this->counter.reset(new Counter(COUNTER_DATA_DIRECTORY, counterPath));
 }
 
-Controller::Controller(Epayment &epayment, WorkflowManager &workflow, Gui &gui) : isRun(false),
-                                                                                  epayment(epayment),
-                                                                                  workflow(workflow),
-                                                                                  gui(gui),
-                                                                                  uncompleWriteHandler(10),
-                                                                                  th(),
-                                                                                  mtx()
+Controller::Controller(Epayment &epayment,
+                       WorkflowManager &workflow,
+                       GpsHandler &gpsHandler,
+                       GsmHandler &gsmHandler,
+                       Gui &gui) : isRun(false),
+                                   epayment(epayment),
+                                   workflow(workflow),
+                                   gpsHandler(gpsHandler),
+                                   gsmHandler(gsmHandler),
+                                   gui(gui),
+                                   uncompleWriteHandler(10),
+                                   th(),
+                                   mtx()
 {
     this->reloadCounter();
 }

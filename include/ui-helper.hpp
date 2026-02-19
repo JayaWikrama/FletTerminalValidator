@@ -25,6 +25,7 @@ public:
     static void reset(Gui &gui, unsigned int amount);
     static void updateCounter(Gui &gui, const Counter *counter);
     static void processingCard(Gui &gui);
+    static void updateNetworkSignalStrength(Gui &gui, int signalStrength);
 
     static void successTapInWithDeduct(Gui &gui, unsigned int amount, unsigned int baseAmount, unsigned int balance, TariffType type, std::time_t exp = 0);
     static void successTapOutWithoutDeduct(Gui &gui, unsigned int balance, UIHelper::TariffType type, std::time_t exp = 0);
