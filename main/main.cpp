@@ -8,6 +8,7 @@
 
 #include "gps-handler.hpp"
 #include "gsm-handler.hpp"
+#include "tsc-delivery-handler.hpp"
 #include "controller.hpp"
 #include "epayment/include/epayment.hpp"
 #include "workflow/include/workflow-manager.hpp"
@@ -110,6 +111,10 @@ int main(int argc, char *argv[])
     GsmHandler gsmHandler;
     gpsHandler.begin();
     gsmHandler.begin();
+
+    TscDeliveryHandler tscDeliveryHandler(asa, gsmHandler, workflow);
+    tscDeliveryHandler.setTransactionLocalDatabase(TRANSACTION_DATABASE);
+    tscDeliveryHandler.begin();
 
     Controller controller(epayment, workflow, gpsHandler, gsmHandler, gui);
 
