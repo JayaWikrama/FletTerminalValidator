@@ -666,8 +666,8 @@ bool Controller::storeTransaction(bool isTapIn,
     tsc.setMID(this->epayment.getActiveMID());
     tsc.setTID(this->epayment.getActiveTID());
     tsc.setTranscode(transcode);
-    tsc.setStatus("S");
-    tsc.setDescription("S");
+    tsc.setStatus("D");
+    tsc.setDescription("D");
     tsc.setTransactionInfo(me);
     tsc.setTransactionRefInfo(ref);
     tsc.setCardData(card);
