@@ -1,5 +1,77 @@
 #include "error-code.hpp"
 
+const std::unordered_map<std::string, std::string> ErrorCode::errorDescriptionMap =
+    {
+        // ===================== BRI =====================
+        {"A1", "BRI - Read memory error"},
+        {"A2", "BRI - Tap kurang dari satu menit"},
+        {"A3", "BRI - Saldo tidak mencukupi"},
+        {"A4", "BRI - Tap code tidak ditemukan"},
+        {"A5", "BRI - Tap check exception"},
+        {"A6", "BRI - Write memory error"},
+        {"A7", "BRI - Write block exception"},
+        {"A8", "BRI - Power slot SAM error"},
+        {"A9", "BRI - Open slot SAM error"},
+        {"AA", "BRI - Balance check exception"},
+
+        // ===================== BNI =====================
+        {"B1", "BNI - Power slot SAM error"},
+        {"B2", "BNI - Open slot SAM error"},
+        {"B3", "BNI - Saldo tidak mencukupi"},
+        {"B4", "BNI - Tap code tidak ditemukan"},
+        {"B5", "BNI - Read memory error"},
+        {"B6", "BNI - Tap check exception"},
+        {"B7", "BNI - Write memory error"},
+        {"B8", "BNI - Write block exception"},
+        {"B9", "BNI - Tap kurang dari satu menit"},
+        {"BA", "BNI - Balance check exception"},
+
+        // ===================== DKI =====================
+        {"C1", "DKI - Power slot SAM error"},
+        {"C2", "DKI - Open slot SAM error"},
+        {"C3", "DKI - Balance check exception"},
+        {"C4", "DKI - Read memory error"},
+        {"C5", "DKI - KLG expired"},
+        {"C6", "DKI - Saldo tidak mencukupi"},
+        {"C7", "DKI - Tap code tidak ditemukan"},
+        {"C8", "DKI - Tap check exception"},
+        {"C9", "DKI - Tap kurang dari satu menit"},
+        {"CA", "DKI - Write memory error"},
+        {"CB", "DKI - Write block exception"},
+
+        // ===================== MANDIRI =====================
+        {"D1", "MANDIRI - Power slot SAM error"},
+        {"D2", "MANDIRI - Open slot SAM error"},
+        {"D3", "MANDIRI - Balance check exception"},
+        {"D4", "MANDIRI - Tap kurang dari satu menit"},
+        {"D5", "MANDIRI - Saldo tidak mencukupi"},
+        {"D6", "MANDIRI - Tap code tidak ditemukan"},
+        {"D7", "MANDIRI - Tap check exception"},
+        {"D8", "MANDIRI - Write memory error"},
+        {"D9", "MANDIRI - Write block exception"},
+        {"DA", "MANDIRI - Read memory error"},
+
+        // ===================== BCA =====================
+        {"E1", "BCA - Init SAM error"},
+        {"E2", "BCA - Power slot SAM error"},
+        {"E3", "BCA - Balance check exception"},
+        {"E4", "BCA - Tap kurang dari satu menit"},
+        {"E5", "BCA - Saldo tidak mencukupi"},
+        {"E6", "BCA - Tap code tidak ditemukan"},
+        {"E7", "BCA - Tap check exception"},
+        {"E8", "BCA - Write memory error"},
+        {"E9", "BCA - Write block exception"},
+        {"EA", "BCA - Open slot SAM error"},
+        {"EB", "BCA - Read memory error"},
+
+        // ===================== GENERAL =====================
+        {"F1", "GENERAL - Unknown card"},
+        {"F2", "GENERAL - Balance check exception"},
+        {"F3", "GENERAL - Card tidak terdeteksi"},
+        {"F4", "GENERAL - NFC exception"},
+        {"F5", "GENERAL - Device tidak terdaftar"},
+        {"F6", "GENERAL - Debit device lost contact"}};
+
 std::string ErrorCode::toString(const ErrorCode::Code &errorCode)
 {
     switch (errorCode)
@@ -134,4 +206,15 @@ std::string ErrorCode::toString(const ErrorCode::Code &errorCode)
     }
 
     return "UNKNOWN";
+}
+
+std::string ErrorCode::description(const std::string &errorCode)
+{
+    std::unordered_map<std::string, std::string>::const_iterator it = errorDescriptionMap.find(errorCode);
+    if (it != errorDescriptionMap.end())
+    {
+        return it->second;
+    }
+
+    return "UNKNOWN - Unknown error code";
 }

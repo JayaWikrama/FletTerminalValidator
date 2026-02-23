@@ -2,8 +2,13 @@
 #define __ERROR_CODE_HPP__
 
 #include <string>
+#include <unordered_map>
+
 class ErrorCode
 {
+private:
+    static const std::unordered_map<std::string, std::string> errorDescriptionMap;
+
 public:
     enum class Code
     {
@@ -79,6 +84,7 @@ public:
     };
 
     static std::string toString(const Code &errorCode);
+    static std::string description(const std::string &errorCode);
 };
 
 #endif
