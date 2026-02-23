@@ -1,4 +1,5 @@
 #include "gps-handler.hpp"
+#include "utils/include/debug.hpp"
 
 GpsHandler::GpsHandler() : isRun(false),
                            gps("/dev/ttyS1", B9600),
@@ -28,7 +29,14 @@ void GpsHandler::begin()
             this->gps.setup();
             while (this->isRuning())
             {
-                this->gps.updateData();
+                try
+                {
+                    this->gps.updateData();
+                }
+                catch (const std::exception &e)
+                {
+                    Debug::error(__FILE__, __LINE__, __func__, "%s\n", e.what());
+                }
                 std::this_thread::sleep_for(std::chrono::milliseconds(125));
             }
         }));
