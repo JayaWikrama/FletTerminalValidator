@@ -14,14 +14,24 @@
 static bool testInternetConnection()
 {
     const char *ip = "8.8.8.8";
-    int sockfd = -1;
-    struct sockaddr_in serverAddr{};
-
-    sockfd = socket(AF_INET, SOCK_STREAM, 0);
+    int sockfd = socket(AF_INET, SOCK_STREAM, 0);
     if (sockfd < 0)
         return false;
 
-    memset(&serverAddr, 0, sizeof(serverAddr));
+    int flags = fcntl(sockfd, F_GETFL, 0);
+    if (flags < 0)
+    {
+        close(sockfd);
+        return false;
+    }
+
+    if (fcntl(sockfd, F_SETFL, flags | O_NONBLOCK) < 0)
+    {
+        close(sockfd);
+        return false;
+    }
+
+    sockaddr_in serverAddr{};
     serverAddr.sin_family = AF_INET;
     serverAddr.sin_port = htons(53);
 
@@ -31,17 +41,43 @@ static bool testInternetConnection()
         return false;
     }
 
-    if (connect(sockfd, (struct sockaddr *)&serverAddr, sizeof(serverAddr)) < 0)
+    int result = connect(sockfd,
+                         reinterpret_cast<sockaddr *>(&serverAddr),
+                         sizeof(serverAddr));
+
+    if (result < 0 && errno != EINPROGRESS)
     {
         close(sockfd);
         return false;
     }
 
+    fd_set writeSet;
+    FD_ZERO(&writeSet);
+    FD_SET(sockfd, &writeSet);
+
+    timeval timeout{};
+    timeout.tv_sec = 3;
+    timeout.tv_usec = 0;
+
+    result = select(sockfd + 1, nullptr, &writeSet, nullptr, &timeout);
+
+    if (result <= 0)
+    {
+        close(sockfd);
+        return false;
+    }
+
+    int soError = 0;
+    socklen_t len = sizeof(soError);
+    getsockopt(sockfd, SOL_SOCKET, SO_ERROR, &soError, &len);
+
     close(sockfd);
-    return true;
+
+    return (soError == 0);
 }
 
 GsmHandler::GsmHandler() : isRun(false),
+                           connected(false),
                            signalStrength(0),
                            th(),
                            mtx() {}
@@ -66,17 +102,23 @@ void GsmHandler::begin()
     this->th.reset(new std::thread(
         [this]()
         {
-            bool isConnected = true;
+            bool isConnectedTmp = false;
             std::time_t lastConnectionTest = 0;
             std::time_t currentTime = std::time(nullptr) - (2 * INTERNET_CONNECTION_CHECK_INTERVAL);
             /* check is connected */
-            isConnected = testInternetConnection();
-            if (isConnected)
+            isConnectedTmp = testInternetConnection();
+            {
+                std::lock_guard<std::mutex> guard(this->mtx);
+                this->connected = isConnectedTmp;
+            }
+            if (this->connected)
             {
                 std::lock_guard<std::mutex> guard(this->mtx);
                 this->signalStrength = gprs_sigval_get();
+                if (this->signalStrength == 99)
+                    this->signalStrength = 24;
             }
-            if (isConnected && this->signalStrength > 0 && this->signalStrength != 99)
+            if (this->connected)
             {
                 Debug::info(__FILE__, __LINE__, __func__, "gsm (gprs) already connected with signal strength %d\n", this->signalStrength);
             }
@@ -96,15 +138,19 @@ void GsmHandler::begin()
                 currentTime = std::time(nullptr);
                 if (std::abs(static_cast<int>(difftime(currentTime, lastConnectionTest))) > INTERNET_CONNECTION_CHECK_INTERVAL)
                 {
-                    isConnected = testInternetConnection();
-                    if (isConnected)
+                    isConnectedTmp = testInternetConnection();
+                    std::lock_guard<std::mutex> guard(this->mtx);
+                    this->connected = isConnectedTmp;
+                    if (this->connected)
                         lastConnectionTest = currentTime;
                 }
-                if (isConnected)
+                if (this->connected)
                 {
                     {
                         std::lock_guard<std::mutex> guard(this->mtx);
                         this->signalStrength = gprs_sigval_get();
+                        if (this->signalStrength == 99)
+                            this->signalStrength = 24;
                         Debug::info(__FILE__, __LINE__, __func__, "gsm (gprs) signal strength: %d\n", this->signalStrength);
                     }
                     std::this_thread::sleep_for(std::chrono::seconds(30));
@@ -129,6 +175,12 @@ void GsmHandler::stop()
     }
     this->th->join();
     this->th.reset();
+}
+
+bool GsmHandler::isConnected() const
+{
+    std::lock_guard<std::mutex> guard(this->mtx);
+    return this->connected;
 }
 
 int GsmHandler::getSignalStrength() const

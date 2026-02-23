@@ -9,6 +9,7 @@ class GsmHandler
 {
 private:
     bool isRun;
+    bool connected;
     int signalStrength;
     std::unique_ptr<std::thread> th;
     mutable std::mutex mtx;
@@ -22,6 +23,7 @@ public:
     void begin();
     void stop();
 
+    bool isConnected() const;
     int getSignalStrength() const;
 };
 
