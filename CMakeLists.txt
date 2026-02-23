@@ -46,6 +46,7 @@ set(SOURCE_FILES
   src/counter.cpp
   src/gsm-handler.cpp
   src/gps-handler.cpp
+  src/tsc-delivery-handler.cpp
   src/uncomplete-write-handler.cpp
   src/controller.cpp
 )
@@ -93,8 +94,6 @@ target_link_libraries(${PROJECT_NAME}
     Qt5Widgets
     Qt5Gui
     Qt5Core
-    crypto
-    ssl
     pthread
     dl
 )
