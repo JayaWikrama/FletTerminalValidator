@@ -6,16 +6,20 @@
 #include <mutex>
 #include "gps/include/gps.hpp"
 
+class ASA;
+class Rmc;
+
 class GpsHandler
 {
 private:
     bool isRun;
     Gps gps;
+    ASA &asa;
     std::unique_ptr<std::thread> th;
     mutable std::mutex mtx;
 
 public:
-    GpsHandler();
+    GpsHandler(ASA &asa);
     ~GpsHandler();
 
     bool isRuning() const;
@@ -24,6 +28,8 @@ public:
     void stop();
 
     void access(std::function<void(const Nmea &nmea)> accessHandler);
+
+    static void rmcUpdateCallback(const Rmc &rmc, void *userData);
 };
 
 #endif

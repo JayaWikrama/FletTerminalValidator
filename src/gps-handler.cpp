@@ -1,10 +1,12 @@
 #include "gps-handler.hpp"
+#include "communication/include/asa.hpp"
 #include "utils/include/debug.hpp"
 
-GpsHandler::GpsHandler() : isRun(false),
-                           gps("/dev/ttyS1", B9600),
-                           th(),
-                           mtx() {}
+GpsHandler::GpsHandler(ASA &asa) : isRun(false),
+                                   gps("/dev/ttyS1", B9600),
+                                   asa(asa),
+                                   th(),
+                                   mtx() {}
 
 GpsHandler::~GpsHandler()
 {
@@ -26,6 +28,7 @@ void GpsHandler::begin()
     this->th.reset(new std::thread(
         [this]()
         {
+            this->gps.setRmcUpdateCallback(GpsHandler::rmcUpdateCallback, &(this->asa));
             this->gps.setup();
             while (this->isRuning())
             {
@@ -56,4 +59,21 @@ void GpsHandler::access(std::function<void(const Nmea &nmea)> accessHandler)
 {
     std::lock_guard<std::mutex> guard(this->mtx);
     this->gps.accessData(accessHandler);
+}
+
+void GpsHandler::rmcUpdateCallback(const Rmc &rmc, void *userData)
+{
+    ASA *asaPtr = static_cast<ASA *>(userData);
+    if (asaPtr)
+    {
+        asaPtr->accessHeartBeatData(
+            [rmc](ASAHeartBeatData &hb)
+            {
+                char gpsLatLon[32];
+                memset(gpsLatLon, 0x00, sizeof(gpsLatLon));
+                snprintf(gpsLatLon, sizeof(gpsLatLon) - 1, "%.07lf,%.07lf", rmc.getLatitude(), rmc.getLongitude());
+                hb.setGpsLoc(gpsLatLon);
+                hb.setGpsLocGprmc(rmc.getPayload().empty() ? "-" : rmc.getPayload());
+            });
+    }
 }

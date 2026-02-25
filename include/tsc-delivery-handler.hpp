@@ -9,6 +9,7 @@
 class ASA;
 class GsmHandler;
 class WorkflowManager;
+class Controller;
 
 class TscDeliveryHandler
 {
@@ -20,10 +21,11 @@ private:
     ASA &asa;
     GsmHandler &gsm;
     WorkflowManager &workflow;
+    Controller &controler;
     mutable std::mutex mtx;
 
 public:
-    TscDeliveryHandler(ASA &asa, GsmHandler &gsm, WorkflowManager &workflow);
+    TscDeliveryHandler(ASA &asa, GsmHandler &gsm, WorkflowManager &workflow, Controller &controller);
     ~TscDeliveryHandler();
 
     void setTransactionLocalDatabase(const std::string &filePath);

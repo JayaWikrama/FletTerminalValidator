@@ -46,6 +46,7 @@ set(SOURCE_FILES
   src/counter.cpp
   src/gsm-handler.cpp
   src/gps-handler.cpp
+  src/sam-handler.cpp
   src/tsc-delivery-handler.cpp
   src/uncomplete-write-handler.cpp
   src/controller.cpp

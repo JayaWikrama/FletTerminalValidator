@@ -28,6 +28,7 @@
 
 class Gui;
 class Epayment;
+class SAMHandler;
 class WorkflowManager;
 class TransactionRules;
 class CardData;
@@ -35,6 +36,7 @@ class Duration;
 class Counter;
 class GpsHandler;
 class GsmHandler;
+class ASA;
 
 class Controller
 {
@@ -45,6 +47,8 @@ private:
     Gui &gui;
     GpsHandler &gpsHandler;
     GsmHandler &gsmHandler;
+    SAMHandler &samHandler;
+    ASA &asa;
     UncompleteWriteHandler uncompleWriteHandler;
     std::unique_ptr<std::thread> th;
     std::unique_ptr<Counter> counter;
@@ -109,15 +113,21 @@ private:
     void reloadCounter();
 
 public:
-    Controller(Epayment &epayment, WorkflowManager &workflow, GpsHandler &gpsHandler, GsmHandler &gsmHandler, Gui &gui);
+    Controller(Epayment &epayment,
+               WorkflowManager &workflow,
+               GpsHandler &gpsHandler,
+               GsmHandler &gsmHandler,
+               SAMHandler &samHandler,
+               ASA &asa,
+               Gui &gui);
     ~Controller();
-
-    void setup(std::function<void(Epayment &epayment, WorkflowManager &workflow, Gui &gui)> handler);
 
     bool isRuning();
 
-    void begin(std::function<void(Epayment &epayment, WorkflowManager &workflow, Gui &gui)> preSetup);
+    void begin(std::function<void(SAMHandler &samHandler, WorkflowManager &workflow, ASA &asa, Gui &gui)> preSetup);
     void stop();
+
+    void accessCounter(std::function<void(Counter &counter)> handler);
 };
 
 #endif

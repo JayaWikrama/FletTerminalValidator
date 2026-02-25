@@ -6,8 +6,9 @@
 #include <algorithm>
 #include <cstring>
 
-#include "gps-handler.hpp"
 #include "gsm-handler.hpp"
+#include "gps-handler.hpp"
+#include "sam-handler.hpp"
 #include "tsc-delivery-handler.hpp"
 #include "controller.hpp"
 #include "epayment/include/epayment.hpp"
@@ -20,11 +21,11 @@
 #include "utils/include/debug.hpp"
 #include "utils/include/time.hpp"
 
-std::string toFletCode(const std::array<unsigned char, 9> &flet)
+std::string toFleetCode(const std::array<unsigned char, 9> &fleet)
 {
     std::array<char, 10> result{};
     std::size_t idx = 0;
-    for (const unsigned char &c : flet)
+    for (const unsigned char &c : fleet)
     {
         if (c == 0x20 || c == 0x00)
             continue;
@@ -94,6 +95,8 @@ int main(int argc, char *argv[])
     Epayment epayment;
     WorkflowManager workflow;
 
+    Debug::info(__FILE__, __LINE__, __func__, "epayment library version: %s\n", epayment.getVersion().c_str());
+
     ASA asa(COMM_CONFIG_FILE);
     asa.login();
     if (isWithProvisioning)
@@ -107,88 +110,70 @@ int main(int argc, char *argv[])
         exit(0);
     }
 
-    GpsHandler gpsHandler;
-    GsmHandler gsmHandler;
-    gpsHandler.begin();
-    gsmHandler.begin();
+    asa.accessHeartBeatData(
+        [&workflow](ASAHeartBeatData &hb)
+        {
+            const ProvisionData &provisionData = workflow.getProvision().getData();
+            const BusinessEntityProfile &businessEntityProfile = provisionData.getBusinessEntityProfile();
+            hb.getBusinessEntity().setId(businessEntityProfile.getId());
+            hb.getBusinessEntity().setName(businessEntityProfile.getName());
 
-    TscDeliveryHandler tscDeliveryHandler(asa, gsmHandler, workflow);
+            hb.setDeviceCode(provisionData.getCode());
+            hb.setDeviceId(provisionData.getDeviceId());
+
+            const DeviceMode &deviceMode = provisionData.getDeviceMode();
+            hb.getDeviceMode().setId(deviceMode.getId());
+            hb.getDeviceMode().setName(deviceMode.getName());
+
+            const DeviceModel &deviceModel = provisionData.getDeviceModel();
+            hb.getDeviceModel().setId(deviceModel.getId());
+            hb.getDeviceModel().setName(deviceModel.getName());
+
+            const FleetInformation &fleetInformation = provisionData.getLocation().getFleetInformation();
+            hb.setDeviceName(fleetInformation.getName());
+
+            hb.setDeviceVersion(provisionData.getDeviceVersion());
+            hb.setFailed(0);
+
+            hb.getLocation().setFleetId(fleetInformation.getFleetId());
+            hb.getLocation().setName(fleetInformation.getName());
+
+            hb.setLocationType(provisionData.getLocationType());
+            hb.setMd5(provisionData.getMd5());
+
+            const SingleTripFare &singleTripfare = provisionData.getPriceInformation().getSingleTrip();
+            hb.setNormalFare(singleTripfare.getPrice());
+
+            hb.setPing(36);         // ask
+            hb.setReceiveBytes(0);  // ask
+            hb.setReductionFare(0); // ask
+            hb.setSendBytes(0);     // ask
+
+#ifdef FTV_MODULE_VERSION
+            hb.setSoftwareVersion(FTV_MODULE_VERSION);
+#endif
+        });
+
+    GsmHandler gsmHandler;
+    GpsHandler gpsHandler(asa);
+    SAMHandler samHandler(epayment);
+
+    gsmHandler.begin();
+    gpsHandler.begin();
+    if (samHandler.setupSAM(workflow.getProvision().getData().getPaymentAcceptance()) == false)
+    {
+        Debug::error(__FILE__, __LINE__, __func__, "some SAM configuration error\n");
+        return 1;
+    }
+
+    Controller controller(epayment, workflow, gpsHandler, gsmHandler, samHandler, asa, gui);
+
+    TscDeliveryHandler tscDeliveryHandler(asa, gsmHandler, workflow, controller);
     tscDeliveryHandler.setTransactionLocalDatabase(TRANSACTION_DATABASE);
     tscDeliveryHandler.begin();
 
-    Controller controller(epayment, workflow, gpsHandler, gsmHandler, gui);
-
-    Debug::info(__FILE__, __LINE__, __func__, "epayment library version: %s\n", epayment.getVersion().c_str());
-
-    const PaymentAcceptance &p = workflow.getProvision().getData().getPaymentAcceptance();
-
-    if (p.getEmoney().getSlot() > 0)
-        if (epayment.setMandiriSamConfig(
-                p.getEmoney().getSlot(),
-                p.getEmoney().getPIN().c_str(),
-                p.getEmoney().getIID().c_str(),
-                p.getEmoney().getMID().c_str(),
-                p.getEmoney().getTID().c_str()) == false)
-        {
-            return 1;
-        }
-    if (p.getTapcash().getSlot() > 0)
-        if (epayment.setBNISamConfig(
-                p.getTapcash()
-                    .getSlot(),
-                p.getTapcash().getMID().c_str(),
-                p.getTapcash().getTID().c_str(),
-                p.getTapcash().getMC().c_str()) == false)
-        {
-            return 1;
-        }
-    if (p.getBrizzi().getSlot() > 0)
-        if (epayment.setBRISamConfig(
-                p.getBrizzi().getSlot(),
-                p.getBrizzi().getMID().c_str(),
-                p.getBrizzi().getTID().c_str(),
-                p.getBrizzi().getProcode().c_str(),
-                1) == false)
-        {
-            return 1;
-        }
-    if (p.getFlazz().getSlot() > 0)
-        if (epayment.setBCASamConfig(
-                p.getFlazz().getSlot(),
-                (p.getFlazz().getMID().length() == 15 ? p.getFlazz().getMID().c_str() + 3 : p.getFlazz().getMID().c_str()),
-                p.getFlazz().getTID().c_str()) == false)
-        {
-            return 1;
-        }
-    if (p.getJakcard().getSlot() > 0)
-    {
-        std::tm tmnow{};
-        char formatedTm[16]{};
-        TimeUtils::fromEpoch(&tmnow, std::time(nullptr));
-        snprintf(formatedTm,
-                 sizeof(formatedTm) - 1,
-                 "%04d%02d%02d%02d%02d%02d",
-                 tmnow.tm_year + 1900,
-                 tmnow.tm_mon + 1,
-                 tmnow.tm_mday,
-                 tmnow.tm_hour,
-                 tmnow.tm_min,
-                 tmnow.tm_sec);
-        formatedTm[14] = 0x00;
-        if (epayment.setDKISamConfig(
-                p.getJakcard().getSlot(),
-                p.getJakcard().getMID().c_str(),
-                p.getJakcard().getTID().c_str(),
-                formatedTm,
-                "dki-stan.json",
-                1) == false)
-        {
-            return 1;
-        }
-    }
-
     controller.begin(
-        [](Epayment &ep, WorkflowManager &workflow, Gui &ui)
+        [](SAMHandler &samHandler, WorkflowManager &workflow, ASA &asa, Gui &ui)
         {
             bool samMandiri = false;
             bool samBni = false;
@@ -196,63 +181,16 @@ int main(int argc, char *argv[])
             bool samBca = false;
             bool samDki = false;
 
-            ui.labelFletCode.setText(toFletCode(workflow.getIdentity().getFletCode()));
+            ui.labelFletCode.setText(toFleetCode(workflow.getIdentity().getFleetCode()));
             ui.labelTerminalId.setText(toTerminal(workflow.getIdentity().getTerminalId()));
 
             ui.labelTariff.hide();
-            ui.labelVersion.setText(ep.getVersion());
+#ifdef FTV_MODULE_VERSION
+            ui.labelVersion.setText(FTV_MODULE_VERSION);
+#endif
 
-            ui.message.show(
-                {"Initialize SAM MDR  ...",
-                 "Initialize SAM BNI   - ",
-                 "Initialize SAM BRI   - ",
-                 "Initialize SAM BCA   - ",
-                 "Initialize SAM DKI   - "});
-
-            samMandiri = ep.initMandiriSAM(230400);
-
-            ui.message.show(
-                {"Initialize SAM MDR  " + std::string(samMandiri ? " OK" : "ERR"),
-                 "Initialize SAM BNI  ...",
-                 "Initialize SAM BRI   - ",
-                 "Initialize SAM BCA   - ",
-                 "Initialize SAM DKI   - "});
-
-            samBni = ep.initBNISAM(115200);
-
-            ui.message.show(
-                {"Initialize SAM MDR  " + std::string(samMandiri ? " OK" : "ERR"),
-                 "Initialize SAM BNI  " + std::string(samBni ? " OK" : "ERR"),
-                 "Initialize SAM BRI  ...",
-                 "Initialize SAM BCA   - ",
-                 "Initialize SAM DKI   - "});
-
-            samBri = ep.initBRISAM(115200);
-
-            ui.message.show(
-                {"Initialize SAM MDR  " + std::string(samMandiri ? " OK" : "ERR"),
-                 "Initialize SAM BNI  " + std::string(samBni ? " OK" : "ERR"),
-                 "Initialize SAM BRI  " + std::string(samBri ? " OK" : "ERR"),
-                 "Initialize SAM BCA  ...",
-                 "Initialize SAM DKI   - "});
-
-            samBca = ep.initBCASAM(115200);
-
-            ui.message.show(
-                {"Initialize SAM MDR  " + std::string(samMandiri ? " OK" : "ERR"),
-                 "Initialize SAM BNI  " + std::string(samBni ? " OK" : "ERR"),
-                 "Initialize SAM BRI  " + std::string(samBri ? " OK" : "ERR"),
-                 "Initialize SAM BCA  " + std::string(samBca ? " OK" : "ERR"),
-                 "Initialize SAM DKI  ..."});
-
-            samDki = ep.initDKISAM(115200);
-
-            ui.message.show(
-                {"Initialize SAM MDR  " + std::string(samMandiri ? " OK" : "ERR"),
-                 "Initialize SAM BNI  " + std::string(samBni ? " OK" : "ERR"),
-                 "Initialize SAM BRI  " + std::string(samBri ? " OK" : "ERR"),
-                 "Initialize SAM BCA  " + std::string(samBca ? " OK" : "ERR"),
-                 "Initialize SAM DKI  " + std::string(samDki ? " OK" : "ERR")});
+            samHandler.initSAM(ui);
+            samHandler.updateChannelsModuleInitResult(asa, workflow.getProvision().getData().getPaymentAcceptance());
 
             std::this_thread::sleep_for(std::chrono::seconds(1));
 

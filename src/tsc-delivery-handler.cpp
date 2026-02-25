@@ -2,6 +2,8 @@
 
 #include "error-code.hpp"
 #include "gsm-handler.hpp"
+#include "controller.hpp"
+#include "counter.hpp"
 #include "tscdata/include/transaction-data.hpp"
 #include "tscdata/include/sqlite3-transaction.hpp"
 #include "communication/include/asa.hpp"
@@ -12,14 +14,18 @@
 
 #define SENT_INTERVAL 10
 
-TscDeliveryHandler::TscDeliveryHandler(ASA &asa, GsmHandler &gsm, WorkflowManager &workflow) : isRun(false),
-                                                                                               successCounter(0),
-                                                                                               localDatabasePath(),
-                                                                                               th(),
-                                                                                               asa(asa),
-                                                                                               gsm(gsm),
-                                                                                               workflow(workflow),
-                                                                                               mtx() {}
+TscDeliveryHandler::TscDeliveryHandler(ASA &asa,
+                                       GsmHandler &gsm,
+                                       WorkflowManager &workflow,
+                                       Controller &controller) : isRun(false),
+                                                                 successCounter(0),
+                                                                 localDatabasePath(),
+                                                                 th(),
+                                                                 asa(asa),
+                                                                 gsm(gsm),
+                                                                 workflow(workflow),
+                                                                 controler(controler),
+                                                                 mtx() {}
 
 TscDeliveryHandler::~TscDeliveryHandler()
 {
@@ -79,6 +85,7 @@ void TscDeliveryHandler::begin()
                 if (ret)
                 {
                     Debug::warning(__FILE__, __LINE__, __func__, "query data failed with return code: %d\n", ret);
+                    this->asa.sendHeartBeat();
                     std::this_thread::sleep_for(std::chrono::seconds(SENT_INTERVAL));
                     continue;
                 }
@@ -100,6 +107,11 @@ void TscDeliveryHandler::begin()
                     {
                         Debug::info(__FILE__, __LINE__, __func__, "success to send data [success transaction] %s\n", tsc.getUUID().c_str());
                         tscdb.updateSuccessToSentToMainServer(tsc.getUUID());
+                        controler.accessCounter(
+                            [](Counter &counter)
+                            {
+                                counter.incSent();
+                            });
                     }
                 }
                 else

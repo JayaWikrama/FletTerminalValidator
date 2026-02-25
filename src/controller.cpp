@@ -14,10 +14,12 @@
 #include "gui/include/gui.hpp"
 #include "epayment/include/epayment.hpp"
 #include "workflow/include/workflow-manager.hpp"
+#include "communication/include/asa.hpp"
 #include "tscdata/include/transaction-data.hpp"
 #include "tscdata/include/sqlite3-transaction.hpp"
 
 #include "utils/include/debug.hpp"
+#include "utils/include/time.hpp"
 
 static std::string generateTimeBasedUUID(std::time_t timeValue)
 {
@@ -600,6 +602,7 @@ bool Controller::storeTransaction(bool isTapIn,
 {
     try
     {
+        std::lock_guard<std::mutex> guard(this->mtx);
         if (this->counter.get() == nullptr)
             this->reloadCounter();
         else if (counter->getCycle().isSameCycle(time) == false)
@@ -614,6 +617,7 @@ bool Controller::storeTransaction(bool isTapIn,
     const TransJakartaFare *transjakartaFare = rules.getCalculatedFare();
     double lat = 0.0;
     double lon = 0.0;
+    std::time_t currentTime = std::time(nullptr);
 
     this->gpsHandler.access(
         [&lat, &lon](const Nmea &nmea)
@@ -631,6 +635,7 @@ bool Controller::storeTransaction(bool isTapIn,
         }
         else
         {
+            std::lock_guard<std::mutex> guard(this->mtx);
             transcode = this->workflow.generateZeroDeductTranscode(this->epayment.getActiveTID(),
                                                                    this->epayment.getActiveMID(),
                                                                    this->counter.get() ? this->counter->getSN() : 0);
@@ -638,13 +643,13 @@ bool Controller::storeTransaction(bool isTapIn,
     }
 
     TransactionIdentity ref;
-    ref.setFletCode(refUserData.getFletCode());
+    ref.setFleetCode(refUserData.getFleetCode());
     ref.setTerminalId(refUserData.getTerminalId());
     ref.setTransactionTime(refUserData.getEpochTime());
     ref.setTransportationType(refUserData.getTrasportationCode());
 
     TransactionIdentity me(this->workflow.getIdentity());
-    me.setTransactionTime(std::time(nullptr));
+    me.setTransactionTime(currentTime);
 
     CardData card = refUserData;
     card.setIssuer(this->epayment.getIssuer());
@@ -660,8 +665,8 @@ bool Controller::storeTransaction(bool isTapIn,
     tsc.setBalanceAfterTransaction(lastBalance);
     tsc.setProcessingTimeMs(duration.getTotalDurationInMs());
     tsc.setCoordinates(lat, lon);
-    tsc.setTransactionTime(std::time(nullptr));
-    tsc.setTransactionStoredTime(std::time(nullptr));
+    tsc.setTransactionTime(currentTime);
+    tsc.setTransactionStoredTime(currentTime);
     tsc.setUUID(generateTimeBasedUUID(tsc.getTransactionTime()));
     tsc.setMID(this->epayment.getActiveMID());
     tsc.setTID(this->epayment.getActiveTID());
@@ -676,6 +681,7 @@ bool Controller::storeTransaction(bool isTapIn,
 
     if (tscdb.insertLog(tsc) == 0)
     {
+        std::lock_guard<std::mutex> guard(this->mtx);
         if (this->counter.get())
         {
             Debug::info(__FILE__, __LINE__, __func__, "success to insert transaction [%d] on cycle %li\n", this->counter->getSN(), this->counter->getCycle().getCycleTime());
@@ -721,6 +727,29 @@ bool Controller::storeTransaction(bool isTapIn,
             this->counter->incPending();
             this->counter->incSN();
             this->counter->storeSN();
+
+            this->asa.accessHeartBeatData(
+                [this, currentTime](ASAHeartBeatData &hb)
+                {
+                    std::tm tmp{};
+                    TimeUtils::fromEpoch(&tmp, currentTime);
+                    hb.setLastTransaction(TimeUtils::format(&tmp, TimeUtils::TIME_FORMAT_ISO_DATETIME));
+
+                    hb.setCounterUnSent(this->counter->getTotalPending());
+                    hb.setCounterTapInRegular(this->counter->getTotalTapInRegular());
+                    hb.setCounterTapInEconomy(this->counter->getTotalTapInEconomy());
+                    hb.setCounterTapInFree(this->counter->getTotalTapInFreeService());
+                    hb.setCounterTapOut(this->counter->getTotalTapOut());
+                    hb.setCounterSent(this->counter->getTotalSent());
+                    hb.setSuccess(this->counter->getTotalTapInRegular() +
+                                  this->counter->getTotalTapInEconomy() +
+                                  this->counter->getTotalTapInFreeService() +
+                                  this->counter->getTotalTapOut());
+                    hb.setTotal(this->counter->getTotalTapInRegular() +
+                                this->counter->getTotalTapInEconomy() +
+                                this->counter->getTotalTapInFreeService() +
+                                this->counter->getTotalTapOut());
+                });
 
             UIHelper::updateCounter(this->gui, this->counter.get());
         }
@@ -803,7 +832,7 @@ bool Controller::storeErrorTransactionOnReadSuccess(bool isTapIn,
     const TransJakartaFare *transjakartaFare = rules.getCalculatedFare();
 
     TransactionIdentity ref;
-    ref.setFletCode(refUserData.getFletCode());
+    ref.setFleetCode(refUserData.getFleetCode());
     ref.setTerminalId(refUserData.getTerminalId());
     ref.setTransactionTime(refUserData.getEpochTime());
     ref.setTransportationType(refUserData.getTrasportationCode());
@@ -1058,11 +1087,14 @@ void Controller::routine()
     }
 
     this->uncompleWriteHandler.maintain();
-    /* check counter reload/reset requirements */
-    if (this->counter.get() == nullptr)
-        this->reloadCounter();
-    else if (counter->getCycle().isSameCycle(std::time(nullptr)) == false)
-        this->reloadCounter();
+    {
+        std::lock_guard<std::mutex> guard(this->mtx);
+        /* check counter reload/reset requirements */
+        if (this->counter.get() == nullptr)
+            this->reloadCounter();
+        else if (counter->getCycle().isSameCycle(std::time(nullptr)) == false)
+            this->reloadCounter();
+    }
     /* update GSM icon */
     UIHelper::updateNetworkSignalStrength(this->gui, this->gsmHandler.getSignalStrength());
 }
@@ -1071,22 +1103,40 @@ void Controller::reloadCounter()
 {
     std::string counterPath = Counter::determineConfigPath(COUNTER_DATA_DIRECTORY, std::time(nullptr));
     this->counter.reset(new Counter(COUNTER_DATA_DIRECTORY, counterPath));
+    if (this->counter.get() != nullptr)
+    {
+        this->asa.accessHeartBeatData(
+            [this](ASAHeartBeatData &hb)
+            {
+                hb.setCounterUnSent(this->counter->getTotalPending());
+                hb.setCounterTapInRegular(this->counter->getTotalTapInRegular());
+                hb.setCounterTapInEconomy(this->counter->getTotalTapInEconomy());
+                hb.setCounterTapInFree(this->counter->getTotalTapInFreeService());
+                hb.setCounterTapOut(this->counter->getTotalTapOut());
+                hb.setCounterSent(this->counter->getTotalSent());
+            });
+    }
 }
 
 Controller::Controller(Epayment &epayment,
                        WorkflowManager &workflow,
                        GpsHandler &gpsHandler,
                        GsmHandler &gsmHandler,
+                       SAMHandler &samHandler,
+                       ASA &asa,
                        Gui &gui) : isRun(false),
                                    epayment(epayment),
                                    workflow(workflow),
                                    gpsHandler(gpsHandler),
                                    gsmHandler(gsmHandler),
+                                   samHandler(samHandler),
+                                   asa(asa),
                                    gui(gui),
                                    uncompleWriteHandler(10),
                                    th(),
                                    mtx()
 {
+    std::lock_guard<std::mutex> guard(this->mtx);
     this->reloadCounter();
 }
 
@@ -1095,19 +1145,13 @@ Controller::~Controller()
     this->stop();
 }
 
-void Controller::setup(std::function<void(Epayment &epayment, WorkflowManager &workflow, Gui &gui)> handler)
-{
-    std::lock_guard<std::mutex> guard(this->mtx);
-    handler(this->epayment, this->workflow, this->gui);
-}
-
 bool Controller::isRuning()
 {
     std::lock_guard<std::mutex> guard(this->mtx);
     return this->isRun;
 }
 
-void Controller::begin(std::function<void(Epayment &epayment, WorkflowManager &workflow, Gui &gui)> preSetup)
+void Controller::begin(std::function<void(SAMHandler &samHandler, WorkflowManager &workflow, ASA &asa, Gui &gui)> preSetup)
 {
     {
         std::lock_guard<std::mutex> guard(this->mtx);
@@ -1119,7 +1163,7 @@ void Controller::begin(std::function<void(Epayment &epayment, WorkflowManager &w
             this->gui.waitObjectReady();
             {
                 std::lock_guard<std::mutex> guard(this->mtx);
-                preSetup(this->epayment, this->workflow, this->gui);
+                preSetup(this->samHandler, this->workflow, this->asa, this->gui);
 
                 const SingleTripFare &singleTripFare = this->workflow.getProvision().getData().getPriceInformation().getSingleTrip();
                 UIHelper::reset(this->gui, singleTripFare.getPrice());
@@ -1144,4 +1188,12 @@ void Controller::stop()
     }
     this->th->join();
     this->th.reset();
+}
+
+void Controller::accessCounter(std::function<void(Counter &counter)> handler)
+{
+    std::lock_guard<std::mutex> guard(this->mtx);
+    if (this->counter.get() == nullptr)
+        return;
+    handler(*(this->counter.get()));
 }
