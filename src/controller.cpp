@@ -7,6 +7,7 @@
 #include "counter.hpp"
 #include "gps-handler.hpp"
 #include "gsm-handler.hpp"
+#include "tsc-delivery-handler.hpp"
 #include "controller.hpp"
 #include "ui-helper.hpp"
 #include "duration.hpp"
@@ -641,6 +642,13 @@ bool Controller::storeTransaction(bool isTapIn,
                                                                    this->counter.get() ? this->counter->getSN() : 0);
         }
     }
+    else
+    {
+        std::lock_guard<std::mutex> guard(this->mtx);
+        transcode = this->workflow.generateZeroDeductTranscode(this->epayment.getActiveTID(),
+                                                               this->epayment.getActiveMID(),
+                                                               this->counter.get() ? this->counter->getSN() : 0);
+    }
 
     TransactionIdentity ref;
     ref.setFleetCode(refUserData.getFleetCode());
@@ -741,10 +749,8 @@ bool Controller::storeTransaction(bool isTapIn,
                     hb.setCounterTapInFree(this->counter->getTotalTapInFreeService());
                     hb.setCounterTapOut(this->counter->getTotalTapOut());
                     hb.setCounterSent(this->counter->getTotalSent());
-                    hb.setSuccess(this->counter->getTotalTapInRegular() +
-                                  this->counter->getTotalTapInEconomy() +
-                                  this->counter->getTotalTapInFreeService() +
-                                  this->counter->getTotalTapOut());
+                    hb.setSuccess(this->counter->getTotalSent());
+                    hb.setFailed(this->counter->getTotalPending());
                     hb.setTotal(this->counter->getTotalTapInRegular() +
                                 this->counter->getTotalTapInEconomy() +
                                 this->counter->getTotalTapInFreeService() +
@@ -757,7 +763,7 @@ bool Controller::storeTransaction(bool isTapIn,
         {
             Debug::warning(__FILE__, __LINE__, __func__, "success to insert transaction but counter object is null\n");
         }
-
+        TscDeliveryHandler::signal();
         return true;
     }
 
@@ -812,6 +818,7 @@ bool Controller::storeErrorTransactionOnReadFailed(const std::time_t time, Durat
     if (tscdb.insertLog(tsc) == 0)
     {
         Debug::info(__FILE__, __LINE__, __func__, "success to insert invalid transaction\n");
+        TscDeliveryHandler::signal();
         return true;
     }
 
@@ -880,6 +887,7 @@ bool Controller::storeErrorTransactionOnReadSuccess(bool isTapIn,
     if (tscdb.insertLog(tsc) == 0)
     {
         Debug::info(__FILE__, __LINE__, __func__, "success to insert invalid transaction\n");
+        TscDeliveryHandler::signal();
         return true;
     }
 
@@ -1114,6 +1122,12 @@ void Controller::reloadCounter()
                 hb.setCounterTapInFree(this->counter->getTotalTapInFreeService());
                 hb.setCounterTapOut(this->counter->getTotalTapOut());
                 hb.setCounterSent(this->counter->getTotalSent());
+                hb.setSuccess(this->counter->getTotalSent());
+                hb.setFailed(this->counter->getTotalPending());
+                hb.setTotal(this->counter->getTotalTapInRegular() +
+                            this->counter->getTotalTapInEconomy() +
+                            this->counter->getTotalTapInFreeService() +
+                            this->counter->getTotalTapOut());
             });
     }
 }
@@ -1138,6 +1152,7 @@ Controller::Controller(Epayment &epayment,
 {
     std::lock_guard<std::mutex> guard(this->mtx);
     this->reloadCounter();
+    this->initHeartBeatData();
 }
 
 Controller::~Controller()
@@ -1190,10 +1205,94 @@ void Controller::stop()
     this->th.reset();
 }
 
+void Controller::initHeartBeatData()
+{
+    asa.accessHeartBeatData(
+        [this](ASAHeartBeatData &hb)
+        {
+            const ProvisionData &provisionData = this->workflow.getProvision().getData();
+            const BusinessEntityProfile &businessEntityProfile = provisionData.getBusinessEntityProfile();
+            hb.getBusinessEntity().setId(businessEntityProfile.getId());
+            hb.getBusinessEntity().setName(businessEntityProfile.getName());
+
+            hb.setDeviceCode(provisionData.getCode());
+            hb.setDeviceId(provisionData.getDeviceId());
+
+            const DeviceMode &deviceMode = provisionData.getDeviceMode();
+            hb.getDeviceMode().setId(deviceMode.getId());
+            hb.getDeviceMode().setName(deviceMode.getName());
+
+            const DeviceModel &deviceModel = provisionData.getDeviceModel();
+            hb.getDeviceModel().setId(deviceModel.getId());
+            hb.getDeviceModel().setName(deviceModel.getName());
+
+            const FleetInformation &fleetInformation = provisionData.getLocation().getFleetInformation();
+            hb.setDeviceName(fleetInformation.getName());
+
+            hb.setDeviceVersion(provisionData.getDeviceVersion());
+
+            if (this->counter.get() != nullptr)
+            {
+                hb.setFailed(this->counter->getTotalPending());
+            }
+
+            hb.getLocation().setFleetId(fleetInformation.getFleetId());
+            hb.getLocation().setName(fleetInformation.getName());
+
+            hb.setLocationType(provisionData.getTransportationType());
+            hb.setMd5(provisionData.getMd5());
+
+            const SingleTripFare &singleTripfare = provisionData.getPriceInformation().getSingleTrip();
+            hb.setNormalFare(singleTripfare.getPrice());
+
+            hb.setPing(36); // hardcode
+            hb.setReceiveBytes(0);
+
+            const std::vector<TransJakartaFare> &transJakartaFares = provisionData.getPriceInformation().getTransJakarta();
+            for (const TransJakartaFare &transJakartaFare : transJakartaFares)
+            {
+                if (transJakartaFare.getFareType().compare("economy") == 0)
+                {
+                    hb.setReductionFare(static_cast<int>(transJakartaFare.getPrice()));
+                    break;
+                }
+            }
+            hb.setSendBytes(0);
+
+#ifdef FTV_MODULE_VERSION
+            hb.setSoftwareVersion(FTV_MODULE_VERSION);
+#endif
+
+            Sqlite3Transaction tscdb(TRANSACTION_DATABASE);
+            std::string lastTransactionTime = tscdb.getLastTransactionTime();
+            if (lastTransactionTime.empty() == false)
+                hb.setLastTransaction(lastTransactionTime);
+        });
+}
+
 void Controller::accessCounter(std::function<void(Counter &counter)> handler)
 {
     std::lock_guard<std::mutex> guard(this->mtx);
     if (this->counter.get() == nullptr)
         return;
     handler(*(this->counter.get()));
+    this->asa.accessHeartBeatData(
+        [this](ASAHeartBeatData &hb)
+        {
+            hb.setCounterUnSent(this->counter->getTotalPending());
+            hb.setCounterSent(this->counter->getTotalSent());
+            hb.setSuccess(this->counter->getTotalSent());
+            hb.setFailed(this->counter->getTotalPending());
+            hb.setTotal(this->counter->getTotalTapInRegular() +
+                        this->counter->getTotalTapInEconomy() +
+                        this->counter->getTotalTapInFreeService() +
+                        this->counter->getTotalTapOut());
+        });
+    UIHelper::updateCounter(this->gui, this->counter.get());
+}
+
+void Controller::accessEpayment(std::function<void(Epayment &epayment)> handler)
+{
+    std::lock_guard<std::mutex> guard(this->mtx);
+    handler(this->epayment);
 }

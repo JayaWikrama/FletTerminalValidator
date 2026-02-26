@@ -17,6 +17,7 @@
 #include "tscdata/include/sqlite3-transaction.hpp"
 #include "communication/include/fetch-api.hpp"
 #include "communication/include/asa.hpp"
+#include "communication/include/tjs.hpp"
 
 #include "utils/include/debug.hpp"
 #include "utils/include/time.hpp"
@@ -110,49 +111,8 @@ int main(int argc, char *argv[])
         exit(0);
     }
 
-    asa.accessHeartBeatData(
-        [&workflow](ASAHeartBeatData &hb)
-        {
-            const ProvisionData &provisionData = workflow.getProvision().getData();
-            const BusinessEntityProfile &businessEntityProfile = provisionData.getBusinessEntityProfile();
-            hb.getBusinessEntity().setId(businessEntityProfile.getId());
-            hb.getBusinessEntity().setName(businessEntityProfile.getName());
-
-            hb.setDeviceCode(provisionData.getCode());
-            hb.setDeviceId(provisionData.getDeviceId());
-
-            const DeviceMode &deviceMode = provisionData.getDeviceMode();
-            hb.getDeviceMode().setId(deviceMode.getId());
-            hb.getDeviceMode().setName(deviceMode.getName());
-
-            const DeviceModel &deviceModel = provisionData.getDeviceModel();
-            hb.getDeviceModel().setId(deviceModel.getId());
-            hb.getDeviceModel().setName(deviceModel.getName());
-
-            const FleetInformation &fleetInformation = provisionData.getLocation().getFleetInformation();
-            hb.setDeviceName(fleetInformation.getName());
-
-            hb.setDeviceVersion(provisionData.getDeviceVersion());
-            hb.setFailed(0);
-
-            hb.getLocation().setFleetId(fleetInformation.getFleetId());
-            hb.getLocation().setName(fleetInformation.getName());
-
-            hb.setLocationType(provisionData.getLocationType());
-            hb.setMd5(provisionData.getMd5());
-
-            const SingleTripFare &singleTripfare = provisionData.getPriceInformation().getSingleTrip();
-            hb.setNormalFare(singleTripfare.getPrice());
-
-            hb.setPing(36);         // ask
-            hb.setReceiveBytes(0);  // ask
-            hb.setReductionFare(0); // ask
-            hb.setSendBytes(0);     // ask
-
-#ifdef FTV_MODULE_VERSION
-            hb.setSoftwareVersion(FTV_MODULE_VERSION);
-#endif
-        });
+    TJS tjs(CTJS_CONFIG_FILE);
+    tjs.login();
 
     GsmHandler gsmHandler;
     GpsHandler gpsHandler(asa);
@@ -168,7 +128,7 @@ int main(int argc, char *argv[])
 
     Controller controller(epayment, workflow, gpsHandler, gsmHandler, samHandler, asa, gui);
 
-    TscDeliveryHandler tscDeliveryHandler(asa, gsmHandler, workflow, controller);
+    TscDeliveryHandler tscDeliveryHandler(asa, tjs, gsmHandler, workflow, controller);
     tscDeliveryHandler.setTransactionLocalDatabase(TRANSACTION_DATABASE);
     tscDeliveryHandler.begin();
 
@@ -199,6 +159,8 @@ int main(int argc, char *argv[])
             ui.message.hide();
 
             Debug::moveLogHistoryToFile();
+
+            TscDeliveryHandler::signal();
         });
 
     gui.begin(argc, argv);

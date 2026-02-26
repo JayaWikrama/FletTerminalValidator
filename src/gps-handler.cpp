@@ -1,6 +1,7 @@
 #include "gps-handler.hpp"
 #include "communication/include/asa.hpp"
 #include "utils/include/debug.hpp"
+#include "utils/include/string.hpp"
 
 GpsHandler::GpsHandler(ASA &asa) : isRun(false),
                                    gps("/dev/ttyS1", B9600),
@@ -70,10 +71,11 @@ void GpsHandler::rmcUpdateCallback(const Rmc &rmc, void *userData)
             [rmc](ASAHeartBeatData &hb)
             {
                 char gpsLatLon[32];
+                std::string rmcPayload = rmc.getPayload();
                 memset(gpsLatLon, 0x00, sizeof(gpsLatLon));
                 snprintf(gpsLatLon, sizeof(gpsLatLon) - 1, "%.07lf,%.07lf", rmc.getLatitude(), rmc.getLongitude());
                 hb.setGpsLoc(gpsLatLon);
-                hb.setGpsLocGprmc(rmc.getPayload().empty() ? "-" : rmc.getPayload());
+                hb.setGpsLocGprmc(rmcPayload.empty() ? "-" : StringUtils::replaceAll(rmcPayload, "\r\n", ""));
             });
     }
 }

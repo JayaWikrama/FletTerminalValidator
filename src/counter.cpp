@@ -418,12 +418,6 @@ void Counter::loadSN()
     Counter::readUnsignedSafe(j, "sn", this->sn);
     try
     {
-        Counter::readUnsignedSafe(j, "sent", this->sent);
-        Counter::readUnsignedSafe(j, "pending", this->pending);
-    }
-    catch (const std::exception &e)
-    {
-        Debug::error(__FILE__, __LINE__, __func__, "%s!\n", e.what());
         Sqlite3Transaction tscdb(TRANSACTION_DATABASE);
         int tmpnum = tscdb.getTotalPending();
         if (tmpnum >= 0)
@@ -434,7 +428,7 @@ void Counter::loadSN()
         else
         {
             Debug::error(__FILE__, __LINE__, __func__, "set value to 0 (failed to load from local database)\n");
-            this->pending = tmpnum;
+            this->pending = 0;
         }
         tmpnum = tscdb.getTotalSent();
         if (tmpnum >= 0)
@@ -445,8 +439,12 @@ void Counter::loadSN()
         else
         {
             Debug::error(__FILE__, __LINE__, __func__, "set value to 0 (failed to load from local database)\n");
-            this->sent = tmpnum;
+            this->sent = 0;
         }
+    }
+    catch (const std::exception &e)
+    {
+        Debug::error(__FILE__, __LINE__, __func__, "%s!\n", e.what());
     }
     Debug::info(__FILE__, __LINE__, __func__, "load %s configuartion done\n", this->filePath.c_str());
 }

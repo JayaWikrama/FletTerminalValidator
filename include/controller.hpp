@@ -24,6 +24,7 @@
 #define TRANSACTION_DATABASE DATA_DIRECTORY "/transaction.db"
 #define MAIN_APP_LOG_FILE "main_app"
 #define COMM_CONFIG_FILE CONFIG_DIRECTORY "/communication.json"
+#define CTJS_CONFIG_FILE CONFIG_DIRECTORY "/commtjs.json"
 #define PROVISION_CONFIG_FILE CONFIG_DIRECTORY "/provision.json"
 
 class Gui;
@@ -127,7 +128,10 @@ public:
     void begin(std::function<void(SAMHandler &samHandler, WorkflowManager &workflow, ASA &asa, Gui &gui)> preSetup);
     void stop();
 
+    void initHeartBeatData();
+
     void accessCounter(std::function<void(Counter &counter)> handler);
+    void accessEpayment(std::function<void(Epayment &epayment)> handler);
 };
 
 #endif
