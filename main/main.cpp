@@ -87,7 +87,7 @@ int main(int argc, char *argv[])
     }
 
     Debug::setMaxLinesLogCache(1024);
-    Debug::setupTXTLogFile(MAIN_APP_LOG_DIRECTORY, MAIN_APP_LOG_FILE, 20971520UL, 5, 5);
+    Debug::setupTXTLogFile(MAIN_APP_LOG_DIRECTORY, MAIN_APP_LOG_FILE, 10485760UL, 5, 5);
 
     Sqlite3Transaction tscdb(TRANSACTION_DATABASE);
     tscdb.createLog();
