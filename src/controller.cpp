@@ -22,6 +22,8 @@
 #include "utils/include/debug.hpp"
 #include "utils/include/time.hpp"
 
+#define SYSTEM_INTEGRATOR_ID 7
+
 static std::string generateTimeBasedUUID(std::time_t timeValue)
 {
     unsigned long long timestampMs = static_cast<unsigned long long>(timeValue) * 1000ULL;
@@ -665,7 +667,7 @@ bool Controller::storeTransaction(bool isTapIn,
 
     TransactionData tsc(isTapIn);
 
-    tsc.setIntegratorId(1);
+    tsc.setIntegratorId(SYSTEM_INTEGRATOR_ID);
     tsc.setMinimumBalance(transjakartaFare == nullptr ? 0 : transjakartaFare->getTicketRules().getMinimalBalance());
     tsc.setBalanceBeforeTransaction(isDeduct ? (lastBalance + amount) : lastBalance);
     tsc.setNormalFare(rules.getNormalFare());
@@ -793,7 +795,7 @@ bool Controller::storeErrorTransactionOnReadFailed(const std::time_t time, Durat
             lon = nmea.getRmc().getLongitude();
         });
 
-    tsc.setIntegratorId(1);
+    tsc.setIntegratorId(SYSTEM_INTEGRATOR_ID);
     tsc.setMinimumBalance(0);
     tsc.setBalanceBeforeTransaction(0);
     tsc.setNormalFare(this->workflow.getProvision().getData().getPriceInformation().getSingleTrip().getPrice());
@@ -862,7 +864,7 @@ bool Controller::storeErrorTransactionOnReadSuccess(bool isTapIn,
             lon = nmea.getRmc().getLongitude();
         });
 
-    tsc.setIntegratorId(1);
+    tsc.setIntegratorId(SYSTEM_INTEGRATOR_ID);
     tsc.setMinimumBalance(transjakartaFare == nullptr ? 0 : transjakartaFare->getTicketRules().getMinimalBalance());
     tsc.setBalanceBeforeTransaction(lastBalance);
     tsc.setNormalFare(rules.getNormalFare());
