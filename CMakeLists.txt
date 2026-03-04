@@ -42,7 +42,10 @@ endif()
 set(SOURCE_FILES
   src/duration.cpp
   src/ui-helper.cpp
+  src/sound-helper.cpp
+  src/qr-decode-helper.cpp
   src/error-code.cpp
+  src/setup.cpp
   src/counter.cpp
   src/gsm-handler.cpp
   src/gps-handler.cpp
@@ -83,12 +86,14 @@ target_link_libraries(${PROJECT_NAME}
     ${CMAKE_CURRENT_SOURCE_DIR}/dependency/reader/lib/libemptechreader.so
     ${CMAKE_CURRENT_SOURCE_DIR}/dependency/reader/lib/libhardware.so
     ${CMAKE_CURRENT_SOURCE_DIR}/dependency/gps/lib/libgps.so
+    ${CMAKE_CURRENT_SOURCE_DIR}/dependency/qrscanner/lib/libqrscanner.so
     ${CMAKE_CURRENT_SOURCE_DIR}/dependency/gui/lib/libgui.so
     ${CMAKE_CURRENT_SOURCE_DIR}/dependency/communication/lib/libcommunication.so
     ${CMAKE_CURRENT_SOURCE_DIR}/dependency/communication/lib/libcurl.so.4.6.0
     ${CMAKE_CURRENT_SOURCE_DIR}/dependency/lzma/lib/liblzma.a
     ${CMAKE_CURRENT_SOURCE_DIR}/dependency/serial/lib/libSerialink.a
     ${CMAKE_CURRENT_SOURCE_DIR}/dependency/serial/lib/libDataFrame.a
+    ${CMAKE_CURRENT_SOURCE_DIR}/dependency/quirc/lib/libquirc.a
 )
 target_link_libraries(${PROJECT_NAME}
   PUBLIC
@@ -96,6 +101,7 @@ target_link_libraries(${PROJECT_NAME}
     Qt5Gui
     Qt5Core
     pthread
+    png
     dl
 )
 if(ENABLE_BCA_PAYMENT)
