@@ -660,6 +660,7 @@ bool Controller::storeTransaction(bool isTapIn,
     ref.setTerminalId(refUserData.getTerminalId());
     ref.setTransactionTime(refUserData.getEpochTime());
     ref.setTransportationType(refUserData.getTrasportationCode());
+    ref.setTerminalCode(this->workflow.getIdentity().getTerminalCode());
 
     TransactionIdentity me(this->workflow.getIdentity());
     me.setTransactionTime(currentTime);
@@ -1161,7 +1162,6 @@ Controller::Controller(Epayment &epayment,
 {
     std::lock_guard<std::mutex> guard(this->mtx);
     this->reloadCounter();
-    this->initHeartBeatData();
 }
 
 Controller::~Controller()
@@ -1188,6 +1188,7 @@ void Controller::begin(std::function<void(SAMHandler &samHandler, WorkflowManage
             {
                 std::lock_guard<std::mutex> guard(this->mtx);
                 preSetup(this->samHandler, this->workflow, this->asa, this->gui);
+                this->initHeartBeatData();
 
                 const SingleTripFare &singleTripFare = this->workflow.getProvision().getData().getPriceInformation().getSingleTrip();
                 UIHelper::reset(this->gui, singleTripFare.getPrice());

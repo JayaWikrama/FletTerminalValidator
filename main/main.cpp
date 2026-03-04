@@ -10,6 +10,7 @@
 #include "gps-handler.hpp"
 #include "sam-handler.hpp"
 #include "tsc-delivery-handler.hpp"
+#include "setup.hpp"
 #include "controller.hpp"
 #include "epayment/include/epayment.hpp"
 #include "workflow/include/workflow-manager.hpp"
@@ -99,20 +100,7 @@ int main(int argc, char *argv[])
     Debug::info(__FILE__, __LINE__, __func__, "epayment library version: %s\n", epayment.getVersion().c_str());
 
     ASA asa(COMM_CONFIG_FILE);
-    asa.login();
-    if (isWithProvisioning)
-        asa.provision(PROVISION_CONFIG_FILE);
-    else
-        Debug::warning(__FILE__, __LINE__, __func__, "skip download provision.json\n");
-
-    if (workflow.loadProvision(PROVISION_CONFIG_FILE) == false)
-    {
-        Debug::critical(__FILE__, __LINE__, __func__, "invalid provision data: %s\n", PROVISION_CONFIG_FILE);
-        exit(0);
-    }
-
     TJS tjs(CTJS_CONFIG_FILE);
-    tjs.login();
 
     GsmHandler gsmHandler;
     GpsHandler gpsHandler(asa);
@@ -120,11 +108,6 @@ int main(int argc, char *argv[])
 
     gsmHandler.begin();
     gpsHandler.begin();
-    if (samHandler.setupSAM(workflow.getProvision().getData().getPaymentAcceptance()) == false)
-    {
-        Debug::error(__FILE__, __LINE__, __func__, "some SAM configuration error\n");
-        return 1;
-    }
 
     Controller controller(epayment, workflow, gpsHandler, gsmHandler, samHandler, asa, gui);
 
@@ -133,16 +116,75 @@ int main(int argc, char *argv[])
     tscDeliveryHandler.begin();
 
     controller.begin(
-        [](SAMHandler &samHandler, WorkflowManager &workflow, ASA &asa, Gui &ui)
+        [&isWithProvisioning, &tjs](SAMHandler &samHandler, WorkflowManager &workflow, ASA &asa, Gui &ui)
         {
+            /* Preparation */
+            ui.setWindowBackground(true);
+            ui.message.show({"",
+                             "LOAD",
+                             "CONFIGURATION",
+                             "",
+                             ""});
+
+            while (asa.load() == false)
+            {
+                ui.setUnderMaintenance(true);
+                Setup communicationSetup;
+                if (communicationSetup.loadIMEI(IMEI_PNG) == false)
+                {
+                    Debug::error(__FILE__, __LINE__, __func__, "failed to load imei\n");
+                }
+
+                while (communicationSetup.setup(COMM_CONFIG_FILE) == false)
+                {
+                    std::this_thread::sleep_for(std::chrono::seconds(1));
+                }
+                std::this_thread::sleep_for(std::chrono::seconds(1));
+            }
+
+            /* process ASA Login & Provision */
+            ui.message.show({"",
+                             "DEVICE",
+                             "PROVISIONING",
+                             "",
+                             ""});
+            asa.login();
+            if (isWithProvisioning)
+                asa.provision(PROVISION_CONFIG_FILE);
+            else
+                Debug::warning(__FILE__, __LINE__, __func__, "skip download provision.json\n");
+
+            if (workflow.loadProvision(PROVISION_CONFIG_FILE) == false)
+            {
+                Debug::critical(__FILE__, __LINE__, __func__, "invalid provision data: %s\n", PROVISION_CONFIG_FILE);
+                exit(0);
+            }
+
+            workflow.accessIdentity(
+                [&tjs](TerminalIdentity &terminalIdentity)
+                {
+                    terminalIdentity.setTerminalCode(tjs.getUserName());
+                });
+
+            /* Process TJ Login */
+            tjs.login();
+
+            /* Process SAM */
+            if (samHandler.setupSAM(workflow.getProvision().getData().getPaymentAcceptance()) == false)
+            {
+                Debug::error(__FILE__, __LINE__, __func__, "some SAM configuration error\n");
+                return 1;
+            }
+
             bool samMandiri = false;
             bool samBni = false;
             bool samBri = false;
             bool samBca = false;
             bool samDki = false;
 
-            ui.labelFletCode.setText(toFleetCode(workflow.getIdentity().getFleetCode()));
+            ui.labelFleetCode.setText(toFleetCode(workflow.getIdentity().getFleetCode()));
             ui.labelTerminalId.setText(toTerminal(workflow.getIdentity().getTerminalId()));
+            ui.labelTerminalName.setText(workflow.getProvision().getData().getLocation().getFleetInformation().getTerminalName());
 
             ui.labelTariff.hide();
 #ifdef FTV_MODULE_VERSION
