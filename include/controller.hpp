@@ -122,6 +122,8 @@ private:
     void routine();
     void reloadCounter();
 
+    void housekeeping();
+
 public:
     Controller(Epayment &epayment,
                WorkflowManager &workflow,

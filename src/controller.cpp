@@ -1142,6 +1142,20 @@ void Controller::reloadCounter()
     }
 }
 
+void Controller::housekeeping()
+{
+    int ndays = this->workflow.getProvision()
+                    .getData()
+                    .getSettings()
+                    .getTransJakartaSettings()
+                    .getHouseKeeping();
+    if (ndays < 1)
+        ndays = 30;
+
+    Sqlite3Transaction tscdb(TRANSACTION_DATABASE);
+    tscdb.deleteLog(ndays);
+}
+
 Controller::Controller(Epayment &epayment,
                        WorkflowManager &workflow,
                        GpsHandler &gpsHandler,
@@ -1189,6 +1203,7 @@ void Controller::begin(std::function<void(SAMHandler &samHandler, WorkflowManage
                 std::lock_guard<std::mutex> guard(this->mtx);
                 preSetup(this->samHandler, this->workflow, this->asa, this->gui);
                 this->initHeartBeatData();
+                this->housekeeping();
 
                 const SingleTripFare &singleTripFare = this->workflow.getProvision().getData().getPriceInformation().getSingleTrip();
                 UIHelper::reset(this->gui, singleTripFare.getPrice());
