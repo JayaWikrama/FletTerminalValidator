@@ -10,6 +10,7 @@
 #include "tsc-delivery-handler.hpp"
 #include "controller.hpp"
 #include "ui-helper.hpp"
+#include "sound-helper.hpp"
 #include "duration.hpp"
 #include "uncomplete-write-handler.hpp"
 #include "gui/include/gui.hpp"
@@ -603,6 +604,8 @@ bool Controller::storeTransaction(bool isTapIn,
                                   const std::string &transcodeStr,
                                   Duration &duration)
 {
+    SoundHelper::transactionSuccess();
+
     try
     {
         std::lock_guard<std::mutex> guard(this->mtx);
@@ -775,6 +778,8 @@ bool Controller::storeTransaction(bool isTapIn,
 
 bool Controller::storeErrorTransactionOnReadFailed(const std::time_t time, Duration &duration, const ErrorCode::Code &desc)
 {
+    SoundHelper::transactionFailed();
+
     TransactionIdentity me(this->workflow.getIdentity());
     me.setTransactionTime(std::time(nullptr));
 
@@ -837,6 +842,8 @@ bool Controller::storeErrorTransactionOnReadSuccess(bool isTapIn,
                                                     Duration &duration,
                                                     const ErrorCode::Code &desc)
 {
+    SoundHelper::transactionFailed();
+
     const unsigned int amount = rules.getFinalFare(refUserData.isCardFreeServices(), refUserData.isCardOKOTrip(), refUserData.getSubsidyAccumulation());
     const TransJakartaFare *transjakartaFare = rules.getCalculatedFare();
 
