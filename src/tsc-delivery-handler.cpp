@@ -215,14 +215,18 @@ void TscDeliveryHandler::begin()
             this->checkMarriageCodeUpdateRequirement();
             while (this->isRuning())
             {
-                if (this->gsm.isConnected() == false)
+                if (this->gsm.isConnected() == false || this->asa.getToken().empty())
                 {
                     std::this_thread::sleep_for(std::chrono::seconds(1));
                     continue;
                 }
+
                 this->sendMarriageCodeIfNeed();
                 this->sendDataToMainServer();
-                this->sendDataToSecondaryServer();
+
+                if (this->tjs.getToken().empty() != false)
+                    this->sendDataToSecondaryServer();
+
                 this->sendHeartBeat();
 
                 TscDeliveryHandler::waitFor(SENT_INTERVAL * 1000);
