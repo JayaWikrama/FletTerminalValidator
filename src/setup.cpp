@@ -130,7 +130,7 @@ bool Setup::buildConfigFile(const std::string &url, const std::string &qrJsonStr
         }
 
         nlohmann::json outputJson;
-        outputJson["base_url"] = this->extractBaseUrl(url);
+        outputJson["base_url"] = this->extractBaseUrl(url) + "/api";
         outputJson["code"] = qrJson["device_code"];
         outputJson["device_version"] = qrJson["device_version"];
         outputJson["serial_number"] = qrJson["serial_number"];
