@@ -691,9 +691,7 @@ bool Controller::storeTransaction(bool isTapIn,
     tsc.setTransactionRefInfo(ref);
     tsc.setCardData(card);
 
-    Sqlite3Transaction tscdb(TRANSACTION_DATABASE);
-
-    if (tscdb.insertLog(tsc) == 0)
+    if (this->localTscDatabase.insertLog(tsc) == 0)
     {
         std::lock_guard<std::mutex> guard(this->mtx);
         if (this->counter.get())
@@ -821,9 +819,7 @@ bool Controller::storeErrorTransactionOnReadFailed(const std::time_t time, Durat
     tsc.setTransactionRefInfo(me);
     tsc.setCardData(card);
 
-    Sqlite3Transaction tscdb(TRANSACTION_DATABASE);
-
-    if (tscdb.insertLog(tsc) == 0)
+    if (this->localTscDatabase.insertLog(tsc) == 0)
     {
         Debug::info(__FILE__, __LINE__, __func__, "success to insert invalid transaction\n");
         TscDeliveryHandler::signal();
@@ -892,9 +888,7 @@ bool Controller::storeErrorTransactionOnReadSuccess(bool isTapIn,
     tsc.setTransactionRefInfo(ref);
     tsc.setCardData(card);
 
-    Sqlite3Transaction tscdb(TRANSACTION_DATABASE);
-
-    if (tscdb.insertLog(tsc) == 0)
+    if (this->localTscDatabase.insertLog(tsc) == 0)
     {
         Debug::info(__FILE__, __LINE__, __func__, "success to insert invalid transaction\n");
         TscDeliveryHandler::signal();
@@ -1120,7 +1114,7 @@ void Controller::routine()
 void Controller::reloadCounter()
 {
     std::string counterPath = Counter::determineConfigPath(COUNTER_DATA_DIRECTORY, std::time(nullptr));
-    this->counter.reset(new Counter(COUNTER_DATA_DIRECTORY, counterPath));
+    this->counter.reset(new Counter(COUNTER_DATA_DIRECTORY, counterPath, this->localTscDatabase));
     if (this->counter.get() != nullptr)
     {
         this->asa.accessHeartBeatData(
@@ -1144,6 +1138,7 @@ void Controller::reloadCounter()
 
 void Controller::housekeeping()
 {
+    Debug::info(__FILE__, __LINE__, __func__, "perform\n");
     int ndays = this->workflow.getProvision()
                     .getData()
                     .getSettings()
@@ -1152,8 +1147,8 @@ void Controller::housekeeping()
     if (ndays < 1)
         ndays = 30;
 
-    Sqlite3Transaction tscdb(TRANSACTION_DATABASE);
-    tscdb.deleteLog(ndays);
+    int ret = this->localTscDatabase.deleteLog(ndays);
+    Debug::info(__FILE__, __LINE__, __func__, "return code: %d\n", ret);
 }
 
 Controller::Controller(Epayment &epayment,
@@ -1162,6 +1157,7 @@ Controller::Controller(Epayment &epayment,
                        GsmHandler &gsmHandler,
                        SAMHandler &samHandler,
                        ASA &asa,
+                       Sqlite3Transaction &localTscDatabase,
                        Gui &gui) : isRun(false),
                                    epayment(epayment),
                                    workflow(workflow),
@@ -1169,6 +1165,7 @@ Controller::Controller(Epayment &epayment,
                                    gsmHandler(gsmHandler),
                                    samHandler(samHandler),
                                    asa(asa),
+                                   localTscDatabase(localTscDatabase),
                                    gui(gui),
                                    uncompleWriteHandler(10),
                                    th(),
@@ -1217,21 +1214,29 @@ void Controller::begin(std::function<void(SAMHandler &samHandler, WorkflowManage
                 this->routine();
                 std::this_thread::sleep_for(std::chrono::milliseconds(125));
             }
+            Debug::info(__FILE__, __LINE__, __func__, "controller routine end\n");
+            this->gui.setUnderMaintenance(true);
         }));
 }
 
 void Controller::stop()
 {
+    bool waitStop = true;
     {
         std::lock_guard<std::mutex> guard(this->mtx);
+        waitStop = this->isRun;
         this->isRun = false;
     }
-    this->th->join();
-    this->th.reset();
+    if (waitStop)
+    {
+        this->th->join();
+        this->th.reset();
+    }
 }
 
 void Controller::initHeartBeatData()
 {
+    Debug::info(__FILE__, __LINE__, __func__, "initialize heartbeat value\n");
     asa.accessHeartBeatData(
         [this](ASAHeartBeatData &hb)
         {
@@ -1288,8 +1293,7 @@ void Controller::initHeartBeatData()
             hb.setSoftwareVersion(FTV_MODULE_VERSION);
 #endif
 
-            Sqlite3Transaction tscdb(TRANSACTION_DATABASE);
-            std::string lastTransactionTime = tscdb.getLastTransactionTime();
+            std::string lastTransactionTime = this->localTscDatabase.getLastTransactionTime();
             if (lastTransactionTime.empty() == false)
                 hb.setLastTransaction(lastTransactionTime);
         });

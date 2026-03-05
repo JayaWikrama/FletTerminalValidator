@@ -225,17 +225,20 @@ void Counter::readUnsignedSafe(const nlohmann::json &j, const char *key, T &targ
 template void Counter::readUnsignedSafe(const nlohmann::json &j, const char *key, unsigned int &target);
 template void Counter::readUnsignedSafe(const nlohmann::json &j, const char *key, unsigned long long int &target);
 
-Counter::Counter(const std::string &snPath, const std::string &counterPath) : sn(0U),
-                                                                              sent(0U),
-                                                                              pending(0U),
-                                                                              cycle(),
-                                                                              emoney(counterPath + "/emoney.json"),
-                                                                              brizzi(counterPath + "/brizzi.json"),
-                                                                              tapcash(counterPath + "/tapcash.json"),
-                                                                              flazz(counterPath + "/flazz.json"),
-                                                                              jakcard(counterPath + "/jakcard.json"),
-                                                                              filePath(snPath + "/sn.json"),
-                                                                              mutex()
+Counter::Counter(const std::string &snPath,
+                 const std::string &counterPath,
+                 Sqlite3Transaction &localTscDatabase) : sn(0U),
+                                                         sent(0U),
+                                                         pending(0U),
+                                                         cycle(),
+                                                         emoney(counterPath + "/emoney.json"),
+                                                         brizzi(counterPath + "/brizzi.json"),
+                                                         tapcash(counterPath + "/tapcash.json"),
+                                                         flazz(counterPath + "/flazz.json"),
+                                                         jakcard(counterPath + "/jakcard.json"),
+                                                         filePath(snPath + "/sn.json"),
+                                                         localTscDatabase(localTscDatabase),
+                                                         mutex()
 {
     this->loadSN();
 }
@@ -418,8 +421,7 @@ void Counter::loadSN()
     Counter::readUnsignedSafe(j, "sn", this->sn);
     try
     {
-        Sqlite3Transaction tscdb(TRANSACTION_DATABASE);
-        int tmpnum = tscdb.getTotalPending();
+        int tmpnum = this->localTscDatabase.getTotalPending();
         if (tmpnum >= 0)
         {
             Debug::info(__FILE__, __LINE__, __func__, "set value to %d (from local database)\n", tmpnum);
@@ -430,7 +432,7 @@ void Counter::loadSN()
             Debug::error(__FILE__, __LINE__, __func__, "set value to 0 (failed to load from local database)\n");
             this->pending = 0;
         }
-        tmpnum = tscdb.getTotalSent();
+        tmpnum = this->localTscDatabase.getTotalSent();
         if (tmpnum >= 0)
         {
             Debug::info(__FILE__, __LINE__, __func__, "set value to %d (from local database)\n", tmpnum);

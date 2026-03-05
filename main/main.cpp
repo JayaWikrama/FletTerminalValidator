@@ -90,8 +90,8 @@ int main(int argc, char *argv[])
     Debug::setMaxLinesLogCache(1024);
     Debug::setupTXTLogFile(MAIN_APP_LOG_DIRECTORY, MAIN_APP_LOG_FILE, 10485760UL, 5, 5);
 
-    Sqlite3Transaction tscdb(TRANSACTION_DATABASE);
-    tscdb.createLog();
+    Sqlite3Transaction localTscDatabase(TRANSACTION_DATABASE);
+    localTscDatabase.createLog();
 
     Gui gui;
     Epayment epayment;
@@ -109,10 +109,8 @@ int main(int argc, char *argv[])
     gsmHandler.begin();
     gpsHandler.begin();
 
-    Controller controller(epayment, workflow, gpsHandler, gsmHandler, samHandler, asa, gui);
-
-    TscDeliveryHandler tscDeliveryHandler(asa, tjs, gsmHandler, workflow, controller);
-    tscDeliveryHandler.setTransactionLocalDatabase(TRANSACTION_DATABASE);
+    Controller controller(epayment, workflow, gpsHandler, gsmHandler, samHandler, asa, localTscDatabase, gui);
+    TscDeliveryHandler tscDeliveryHandler(asa, tjs, gsmHandler, workflow, controller, localTscDatabase, gui);
     tscDeliveryHandler.begin();
 
     controller.begin(
@@ -160,13 +158,18 @@ int main(int argc, char *argv[])
                 exit(0);
             }
 
+            const ProvisionData &provisionData = workflow.getProvision().getData();
+
             workflow.accessIdentity(
-                [&tjs](TerminalIdentity &terminalIdentity)
+                [&provisionData](TerminalIdentity &terminalIdentity)
                 {
-                    terminalIdentity.setTerminalCode(tjs.getUserName());
+                    terminalIdentity.setTerminalCode(provisionData.getTransJakartaConfig().getTerminalCode());
                 });
 
             /* Process TJ Login */
+            tjs.setBaseUrl(provisionData.getEndpoint().getApitoLoginThirdParty());
+            tjs.setUserName(provisionData.getTransJakartaConfig().getTerminalCode());
+            tjs.setKey(provisionData.getTransJakartaConfig().getPassword());
             tjs.login();
 
             /* Process SAM */
@@ -200,9 +203,12 @@ int main(int argc, char *argv[])
             ui.labelStatus.hide();
             ui.message.hide();
 
+            Debug::info(__FILE__, __LINE__, __func__, "store startup log\n");
             Debug::moveLogHistoryToFile();
 
+            Debug::info(__FILE__, __LINE__, __func__, "trigger tsc delivery signal\n");
             TscDeliveryHandler::signal();
+            Debug::info(__FILE__, __LINE__, __func__, "preparation done\n");
         });
 
     gui.begin(argc, argv);

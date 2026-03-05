@@ -1,16 +1,24 @@
 #include <ctime>
+#include <unistd.h>
+#include <fstream>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <cerrno>
 
 #include "error-code.hpp"
 #include "gsm-handler.hpp"
 #include "controller.hpp"
 #include "counter.hpp"
+#include "directory-cleaner.hpp"
 #include "tscdata/include/transaction-data.hpp"
 #include "tscdata/include/sqlite3-transaction.hpp"
 #include "communication/include/asa.hpp"
 #include "communication/include/tjs.hpp"
 #include "workflow/include/workflow-manager.hpp"
 #include "epayment/include/epayment.hpp"
+#include "gui/include/gui.hpp"
 #include "utils/include/debug.hpp"
+#include "utils/include/time.hpp"
 
 #include "tsc-delivery-handler.hpp"
 
@@ -43,11 +51,10 @@ void TscDeliveryHandler::checkMarriageCodeUpdateRequirement()
 bool TscDeliveryHandler::sendDataToMainServer()
 {
     TransactionData tsc;
-    Sqlite3Transaction tscdb(this->getLocalDatabasePath());
     int ret = 0;
 
-    Debug::info(__FILE__, __LINE__, __func__, "query data from: %s\n", this->getLocalDatabasePath().c_str());
-    ret = tscdb.queryPendingLog(tsc, true);
+    Debug::info(__FILE__, __LINE__, __func__, "query data\n");
+    ret = this->localTscDatabase.queryPendingLog(tsc, true);
     if (ret)
     {
         Debug::warning(__FILE__, __LINE__, __func__, "query data failed with return code: %d\n", ret);
@@ -70,7 +77,7 @@ bool TscDeliveryHandler::sendDataToMainServer()
         if (result)
         {
             Debug::info(__FILE__, __LINE__, __func__, "success to send data [success transaction] %s\n", tsc.getUUID().c_str());
-            tscdb.updateSuccessToSentToMainServer(tsc.getUUID());
+            this->localTscDatabase.updateSuccessToSentToMainServer(tsc.getUUID());
             Debug::info(__FILE__, __LINE__, __func__, "status for %s updated\n", tsc.getUUID().c_str());
             controler.accessCounter(
                 [](Counter &counter)
@@ -94,7 +101,7 @@ bool TscDeliveryHandler::sendDataToMainServer()
         if (result)
         {
             Debug::info(__FILE__, __LINE__, __func__, "success to send data [failed transaction] %s\n", tsc.getUUID().c_str());
-            tscdb.updateSuccessToSentToMainServer(tsc.getUUID());
+            this->localTscDatabase.updateSuccessToSentToMainServer(tsc.getUUID());
         }
     }
     return result;
@@ -103,11 +110,10 @@ bool TscDeliveryHandler::sendDataToMainServer()
 bool TscDeliveryHandler::sendDataToSecondaryServer()
 {
     TransactionData tsc;
-    Sqlite3Transaction tscdb(this->getLocalDatabasePath());
     int ret = 0;
 
-    Debug::info(__FILE__, __LINE__, __func__, "query data from: %s\n", this->getLocalDatabasePath().c_str());
-    ret = tscdb.queryPendingLog(tsc, false);
+    Debug::info(__FILE__, __LINE__, __func__, "query data\n");
+    ret = this->localTscDatabase.queryPendingLog(tsc, false);
     if (ret)
     {
         Debug::warning(__FILE__, __LINE__, __func__, "query data failed with return code: %d\n", ret);
@@ -121,7 +127,7 @@ bool TscDeliveryHandler::sendDataToSecondaryServer()
     if (result)
     {
         Debug::info(__FILE__, __LINE__, __func__, "success to send data %s\n", tsc.getUUID().c_str());
-        tscdb.updateSuccessToSentToSecondServer(tsc.getUUID());
+        this->localTscDatabase.updateSuccessToSentToSecondServer(tsc.getUUID());
     }
     return result;
 }
@@ -131,7 +137,116 @@ bool TscDeliveryHandler::sendHeartBeat()
     std::time_t currentTime = std::time(nullptr);
     if (std::abs(difftime(currentTime, this->lastHeartBeatSent)) > HEART_BEAT_INTERVAL)
     {
-        this->asa.sendHeartBeat();
+        if (this->asa.sendHeartBeat())
+        {
+            if (this->asa.isMD5ProvisionMismatch())
+            {
+                this->controler.stop();
+                int64_t tryDelay = 3;
+                while (this->asa.provision(PROVISION_CONFIG_FILE) == false)
+                {
+                    std::this_thread::sleep_for(std::chrono::seconds(tryDelay));
+                    if (tryDelay < 30)
+                        tryDelay += 3;
+                    else
+                        tryDelay = 300;
+                }
+                Debug::info(__FILE__, __LINE__, __func__, "reboot device\n");
+                Debug::moveLogHistoryToFile();
+                for (int i = 11; i > 0; i--)
+                {
+                    this->gui.message.show({"",
+                                            "REBOOT IN",
+                                            std::to_string(i - 1),
+                                            (i > 2 ? "SECONDS" : "SECOND"),
+                                            ""});
+                    std::this_thread::sleep_for(std::chrono::seconds(1));
+                }
+                system("reboot");
+            }
+
+            bool isNoLogOperationAvailable = false;
+            {
+                std::lock_guard<std::mutex> guard(this->mtx);
+                isNoLogOperationAvailable = (this->sendLogStatus == TscDeliveryHandler::SendLogStatus::NONE);
+            }
+
+            if (isNoLogOperationAvailable)
+            {
+                if (this->asa.isNeedToSendLog())
+                {
+                    std::tm tmp{};
+                    TimeUtils::fromEpoch(&tmp, std::time(nullptr));
+                    std::string datetimeRFC_3339 = TimeUtils::format(&tmp, TimeUtils::TIME_FORMAT_RFC_3339);
+                    this->zipLogFileName = std::string(TMP_DIRECTORY) + "/" + this->asa.getSerialNumber() + "-" + datetimeRFC_3339 + ".zip";
+                    std::string command = "zip -r '" + this->zipLogFileName + "' " + std::string(LOG_DIRECTORY);
+                    Debug::info(__FILE__, __LINE__, __func__, "command: \"%s\"\n", command.c_str());
+
+                    if (mkdir(TMP_DIRECTORY, 0777) == 0)
+                        Debug::info(__FILE__, __LINE__, __func__, "create directory \"%s\" success\n", TMP_DIRECTORY);
+                    else if (errno == EEXIST)
+                        Debug::info(__FILE__, __LINE__, __func__, "directory \"%s\" already exist\n", TMP_DIRECTORY);
+
+                    if (system(command.c_str()) == 0)
+                    {
+                        {
+                            std::lock_guard<std::mutex> guard(this->mtx);
+                            this->sendLogStatus = TscDeliveryHandler::SendLogStatus::PROCESS;
+                        }
+                        this->thSendLog.reset(new std::thread(
+                            [this]()
+                            {
+                                ASA asaLog(COMM_CONFIG_FILE);
+                                asaLog.load();
+                                asaLog.setToken(this->asa.getToken());
+                                if (asaLog.sendLog(this->zipLogFileName))
+                                {
+                                    Debug::info(__FILE__, __LINE__, __func__, "send log \"%s\" success\n", this->zipLogFileName.c_str());
+                                    std::lock_guard<std::mutex> guard(this->mtx);
+                                    this->sendLogStatus = TscDeliveryHandler::SendLogStatus::DONE;
+                                }
+                                else
+                                {
+                                    Debug::error(__FILE__, __LINE__, __func__, "send log \"%s\" failed\n", this->zipLogFileName.c_str());
+                                    std::lock_guard<std::mutex> guard(this->mtx);
+                                    this->sendLogStatus = TscDeliveryHandler::SendLogStatus::FAILED;
+                                }
+                                std::lock_guard<std::mutex> guard(this->mtx);
+                                DirectoryCleaner dirClean(TMP_DIRECTORY, ".zip");
+                                if (dirClean.execute() == false)
+                                {
+                                    Debug::error(__FILE__, __LINE__, __func__, "failed to clean \".zip\" from %s\n", TMP_DIRECTORY);
+                                }
+                            }));
+                    }
+                    else
+                    {
+                        Debug::error(__FILE__, __LINE__, __func__, "failed to generate \"%s\"\n", this->zipLogFileName.c_str());
+                    }
+                }
+                if (this->asa.isNeedToClearLog())
+                {
+                    std::lock_guard<std::mutex> guard(this->mtx);
+                    if (this->sendLogStatus == TscDeliveryHandler::SendLogStatus::NONE)
+                    {
+                        DirectoryCleaner logClean(LOG_DIRECTORY, ".log");
+                        if (logClean.execute("_") == false)
+                        {
+                            Debug::error(__FILE__, __LINE__, __func__, "failed to clean log\n");
+                        }
+                        else
+                        {
+                            Debug::info(__FILE__, __LINE__, __func__, "clean log success\n", this->zipLogFileName.c_str());
+                            this->scheduleCleanLog = false;
+                        }
+                        DirectoryCleaner xzClean(LOG_DIRECTORY, ".xz");
+                        xzClean.execute();
+                    }
+                    else
+                        this->scheduleCleanLog = true;
+                }
+            }
+        }
         this->lastHeartBeatSent = currentTime;
     }
     return true;
@@ -173,27 +288,27 @@ TscDeliveryHandler::TscDeliveryHandler(ASA &asa,
                                        TJS &tjs,
                                        GsmHandler &gsm,
                                        WorkflowManager &workflow,
-                                       Controller &controler) : isRun(false),
-                                                                isSendMarriageCode(false),
-                                                                lastHeartBeatSent(0),
-                                                                localDatabasePath(),
-                                                                th(),
-                                                                asa(asa),
-                                                                tjs(tjs),
-                                                                gsm(gsm),
-                                                                workflow(workflow),
-                                                                controler(controler),
-                                                                mtx() {}
+                                       Controller &controler,
+                                       Sqlite3Transaction &localTscDatabase,
+                                       Gui &gui) : isRun(false),
+                                                   isSendMarriageCode(false),
+                                                   lastHeartBeatSent(0),
+                                                   sendLogStatus(TscDeliveryHandler::SendLogStatus::NONE),
+                                                   zipLogFileName(),
+                                                   th(),
+                                                   thSendLog(),
+                                                   asa(asa),
+                                                   tjs(tjs),
+                                                   gui(gui),
+                                                   gsm(gsm),
+                                                   workflow(workflow),
+                                                   controler(controler),
+                                                   localTscDatabase(localTscDatabase),
+                                                   mtx() {}
 
 TscDeliveryHandler::~TscDeliveryHandler()
 {
     this->stop();
-}
-
-void TscDeliveryHandler::setTransactionLocalDatabase(const std::string &filePath)
-{
-    std::lock_guard<std::mutex> guard(this->mtx);
-    this->localDatabasePath = filePath;
 }
 
 bool TscDeliveryHandler::isRuning() const
@@ -221,10 +336,36 @@ void TscDeliveryHandler::begin()
                     continue;
                 }
 
+                {
+                    std::lock_guard<std::mutex> guard(this->mtx);
+                    if (this->sendLogStatus == TscDeliveryHandler::SendLogStatus::DONE ||
+                        this->sendLogStatus == TscDeliveryHandler::SendLogStatus::DONE)
+                    {
+                        this->thSendLog->join();
+                        this->thSendLog.reset();
+                        this->sendLogStatus = TscDeliveryHandler::SendLogStatus::NONE;
+                    }
+                    if (this->sendLogStatus == TscDeliveryHandler::SendLogStatus::NONE && this->scheduleCleanLog)
+                    {
+                        DirectoryCleaner logClean(LOG_DIRECTORY, ".log");
+                        if (logClean.execute("_") == false)
+                        {
+                            Debug::error(__FILE__, __LINE__, __func__, "failed to clean log\n");
+                        }
+                        else
+                        {
+                            Debug::info(__FILE__, __LINE__, __func__, "clean log success\n", this->zipLogFileName.c_str());
+                            this->scheduleCleanLog = false;
+                        }
+                        DirectoryCleaner xzClean(LOG_DIRECTORY, ".xz");
+                        xzClean.execute();
+                    }
+                }
+
                 this->sendMarriageCodeIfNeed();
                 this->sendDataToMainServer();
 
-                if (this->tjs.getToken().empty() != false)
+                if (this->tjs.getToken().empty() != true)
                     this->sendDataToSecondaryServer();
 
                 this->sendHeartBeat();
@@ -242,12 +383,6 @@ void TscDeliveryHandler::stop()
     }
     this->th->join();
     this->th.reset();
-}
-
-const std::string &TscDeliveryHandler::getLocalDatabasePath() const
-{
-    std::lock_guard<std::mutex> guard(this->mtx);
-    return this->localDatabasePath;
 }
 
 bool TscDeliveryHandler::waitFor(int timeoutMs)

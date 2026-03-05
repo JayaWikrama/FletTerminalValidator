@@ -5,6 +5,8 @@
 #include <mutex>
 #include "utils/include/nlohmann/json_fwd.hpp"
 
+class Sqlite3Transaction;
+
 class Counter
 {
 public:
@@ -66,13 +68,14 @@ private:
     Issuer flazz;
     Issuer jakcard;
     std::string filePath;
+    Sqlite3Transaction &localTscDatabase;
     mutable std::mutex mutex;
 
     template <typename T>
     static void readUnsignedSafe(const nlohmann::json &j, const char *key, T &target);
 
 public:
-    Counter(const std::string &snPath, const std::string &counterPath);
+    Counter(const std::string &snPath, const std::string &counterPath, Sqlite3Transaction &localTscDatabase);
     ~Counter();
 
     void incSN();

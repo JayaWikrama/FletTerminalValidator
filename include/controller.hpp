@@ -17,6 +17,7 @@
 #define DATA_DIRECTORY FTV_WORKING_DIRECTORY "/data"
 #define LOG_DIRECTORY FTV_WORKING_DIRECTORY "/log"
 #define MISC_DIRECTORY FTV_WORKING_DIRECTORY "/misc"
+#define TMP_DIRECTORY FTV_WORKING_DIRECTORY "/tmp"
 
 #define PICTURE_DIRECTORY MISC_DIRECTORY "/pic"
 #define WAV_DIRECTORY MISC_DIRECTORY "/wav"
@@ -26,7 +27,7 @@
 #define EPAYMENT_MODULE_LOG_DIRECTORY LOG_DIRECTORY "/epayment"
 
 #define TRANSACTION_DATABASE DATA_DIRECTORY "/transaction.db"
-#define MAIN_APP_LOG_FILE "main_app"
+#define MAIN_APP_LOG_FILE "main"
 #define COMM_CONFIG_FILE CONFIG_DIRECTORY "/communication.json"
 #define CTJS_CONFIG_FILE CONFIG_DIRECTORY "/commtjs.json"
 #define PROVISION_CONFIG_FILE CONFIG_DIRECTORY "/provision.json"
@@ -47,6 +48,7 @@ class Counter;
 class GpsHandler;
 class GsmHandler;
 class ASA;
+class Sqlite3Transaction;
 
 class Controller
 {
@@ -59,6 +61,7 @@ private:
     GsmHandler &gsmHandler;
     SAMHandler &samHandler;
     ASA &asa;
+    Sqlite3Transaction &localTscDatabase;
     UncompleteWriteHandler uncompleWriteHandler;
     std::unique_ptr<std::thread> th;
     std::unique_ptr<Counter> counter;
@@ -131,6 +134,7 @@ public:
                GsmHandler &gsmHandler,
                SAMHandler &samHandler,
                ASA &asa,
+               Sqlite3Transaction &localTscDatabase,
                Gui &gui);
     ~Controller();
 

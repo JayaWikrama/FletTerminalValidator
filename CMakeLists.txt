@@ -50,6 +50,7 @@ set(SOURCE_FILES
   src/gsm-handler.cpp
   src/gps-handler.cpp
   src/sam-handler.cpp
+  src/directory-cleaner.cpp
   src/tsc-delivery-handler.cpp
   src/uncomplete-write-handler.cpp
   src/controller.cpp
