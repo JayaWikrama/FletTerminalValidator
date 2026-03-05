@@ -644,7 +644,7 @@ bool Controller::storeTransaction(bool isTapIn,
             std::lock_guard<std::mutex> guard(this->mtx);
             transcode = this->workflow.generateZeroDeductTranscode(this->epayment.getActiveTID(),
                                                                    this->epayment.getActiveMID(),
-                                                                   this->counter.get() ? this->counter->getSN() : 0);
+                                                                   refUserData.getCardNumber());
         }
     }
     else
@@ -652,7 +652,7 @@ bool Controller::storeTransaction(bool isTapIn,
         std::lock_guard<std::mutex> guard(this->mtx);
         transcode = this->workflow.generateZeroDeductTranscode(this->epayment.getActiveTID(),
                                                                this->epayment.getActiveMID(),
-                                                               this->counter.get() ? this->counter->getSN() : 0);
+                                                               refUserData.getCardNumber());
     }
 
     TransactionIdentity ref;
