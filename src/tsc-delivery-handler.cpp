@@ -79,13 +79,6 @@ bool TscDeliveryHandler::sendDataToMainServer()
             Debug::info(__FILE__, __LINE__, __func__, "success to send data [success transaction] %s\n", tsc.getUUID().c_str());
             this->localTscDatabase.updateSuccessToSentToMainServer(tsc.getUUID());
             Debug::info(__FILE__, __LINE__, __func__, "status for %s updated\n", tsc.getUUID().c_str());
-            controler.accessCounter(
-                [](Counter &counter)
-                {
-                    counter.incSent();
-                    counter.storeSN();
-                    Debug::info(__FILE__, __LINE__, __func__, "counter updated\n");
-                });
         }
     }
     else
@@ -94,8 +87,6 @@ bool TscDeliveryHandler::sendDataToMainServer()
 
         data["desc_notifications"] = ErrorCode::description(data["desc"].get<std::string>());
         data["device_id"] = provision.getData().getDeviceId();
-
-        Debug::info(__FILE__, __LINE__, __func__, "TSC Data to Post: %s\n", data.dump(2).c_str());
 
         result = asa.sendTransactionFailed(data);
         if (result)
@@ -121,13 +112,23 @@ bool TscDeliveryHandler::sendDataToSecondaryServer()
     }
 
     nlohmann::json data;
-    tsc.toJsonToTJApi(data);
+    bool isTscSuccess = tsc.toJsonToTJApi(data);
     const Provision &provision = this->workflow.getProvision();
     bool result = this->tjs.sendTransaction(data);
     if (result)
     {
         Debug::info(__FILE__, __LINE__, __func__, "success to send data %s\n", tsc.getUUID().c_str());
         this->localTscDatabase.updateSuccessToSentToSecondServer(tsc.getUUID());
+        if (isTscSuccess)
+        {
+            controler.accessCounter(
+                [](Counter &counter)
+                {
+                    counter.incSent();
+                    counter.storeSN();
+                    Debug::info(__FILE__, __LINE__, __func__, "counter updated\n");
+                });
+        }
     }
     return result;
 }
