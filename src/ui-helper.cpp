@@ -365,7 +365,7 @@ void UIHelper::insufficientBalance(Gui &gui, unsigned int balance, bool isFreeSe
     if (isFreeServiceComboExpired)
     {
         gui.message.show(
-            {"TAP-IN GAGAL",
+            {"SALDO KURANG",
              "KARTU HABIS MASA",
              formatDate(exp, "BERLAKU s/d"),
              "LAKUKAN PERPANJANGAN",
