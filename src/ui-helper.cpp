@@ -358,16 +358,28 @@ void UIHelper::failedToDeductCard(Gui &gui, const std::string &err)
          err});
 }
 
-void UIHelper::insufficientBalance(Gui &gui, unsigned int balance)
+void UIHelper::insufficientBalance(Gui &gui, unsigned int balance, bool isFreeServiceComboExpired, std::time_t exp)
 {
     std::lock_guard<std::mutex> guard(UIHelper::mtx);
     UIHelper::isStateProcessing = false;
-    gui.message.show(
-        {"SALDO KURANG",
-         "SILAHKAN ISI SALDO",
-         " ",
-         " ",
-         "TERIMA KASIH"});
+    if (isFreeServiceComboExpired)
+    {
+        gui.message.show(
+            {"TAP-IN GAGAL",
+             "KARTU HABIS MASA",
+             formatDate(exp, "BERLAKU s/d"),
+             "LAKUKAN PERPANJANGAN",
+             formatRupiah(balance, "SISA SALDO")});
+    }
+    else
+    {
+        gui.message.show(
+            {"SALDO KURANG",
+             "SILAHKAN ISI SALDO",
+             " ",
+             " ",
+             "TERIMA KASIH"});
+    }
 }
 
 void UIHelper::blockingTime(Gui &gui)
@@ -406,14 +418,26 @@ void UIHelper::fareNotFound(Gui &gui)
          ""});
 }
 
-void UIHelper::insufficientMinimumBalance(Gui &gui, unsigned int balance)
+void UIHelper::insufficientMinimumBalance(Gui &gui, unsigned int balance, bool isFreeServiceComboExpired, std::time_t exp)
 {
     std::lock_guard<std::mutex> guard(UIHelper::mtx);
     UIHelper::isStateProcessing = false;
-    gui.message.show(
-        {"SALDO MINIMUM KURANG",
-         formatRupiah(balance, "SALDO ANDA"),
-         " ",
-         "SILAHKAN ISI SALDO",
-         "TERIMA KASIH"});
+    if (isFreeServiceComboExpired)
+    {
+        gui.message.show(
+            {"TAP-IN GAGAL",
+             "KARTU HABIS MASA",
+             formatDate(exp, "BERLAKU s/d"),
+             "LAKUKAN PERPANJANGAN",
+             formatRupiah(balance, "SISA SALDO")});
+    }
+    else
+    {
+        gui.message.show(
+            {"SALDO MINIMUM KURANG",
+             formatRupiah(balance, "SALDO ANDA"),
+             " ",
+             "SILAHKAN ISI SALDO",
+             "TERIMA KASIH"});
+    }
 }

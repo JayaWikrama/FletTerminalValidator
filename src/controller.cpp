@@ -209,7 +209,10 @@ bool Controller::processAttachedCard(Duration &duration)
                         duration.checkPoint("get balance operation");
                         if (cardBalance >= 0)
                         {
-                            UIHelper::insufficientBalance(this->gui, cardBalance);
+                            UIHelper::insufficientBalance(this->gui,
+                                                          cardBalance,
+                                                          refUserData.isCardFreeServicesExpiredCombo(),
+                                                          refUserData.freeService.expireOn);
                             this->storeErrorInsufficientBalance(false, true, cardBalance, refUserData, rules, duration);
                             return;
                         }
@@ -323,7 +326,10 @@ bool Controller::processAttachedCard(Duration &duration)
                         duration.checkPoint("get balance operation");
                         if (cardBalance >= 0)
                         {
-                            UIHelper::insufficientBalance(this->gui, cardBalance);
+                            UIHelper::insufficientBalance(this->gui,
+                                                          cardBalance,
+                                                          refUserData.isCardFreeServicesExpiredCombo(),
+                                                          refUserData.freeService.expireOn);
                             this->storeErrorInsufficientBalance(true, true, cardBalance, refUserData, rules, duration);
                             return;
                         }
@@ -398,7 +404,10 @@ bool Controller::processAttachedCard(Duration &duration)
                             {
                                 result = false;
                                 Debug::error(__FILE__, __LINE__, __func__, "insufficient minimum balance\n");
-                                UIHelper::insufficientMinimumBalance(this->gui, cardBalance);
+                                UIHelper::insufficientMinimumBalance(this->gui,
+                                                                     cardBalance,
+                                                                     refUserData.isCardFreeServicesExpiredCombo(),
+                                                                     refUserData.freeService.expireOn);
                                 this->storeErrorInsufficientBalance(true, false, cardBalance, refUserData, rules, duration);
                                 return;
                             }
@@ -547,7 +556,10 @@ bool Controller::processAttachedCard(Duration &duration)
                         duration.checkPoint("get balance operation");
                         if (cardBalance >= 0)
                         {
-                            UIHelper::insufficientBalance(this->gui, cardBalance);
+                            UIHelper::insufficientBalance(this->gui,
+                                                          cardBalance,
+                                                          refUserData.isCardFreeServicesExpiredCombo(),
+                                                          refUserData.freeService.expireOn);
                             this->storeErrorInsufficientBalance(false, true, cardBalance, refUserData, rules, duration);
                             return;
                         }
@@ -590,7 +602,7 @@ bool Controller::processAttachedCard(Duration &duration)
             [this](const std::array<unsigned char, 64> &userData)
             {
                 Debug::error(__FILE__, __LINE__, __func__, "insufficient minimum balance\n");
-                UIHelper::insufficientMinimumBalance(this->gui, 0);
+                UIHelper::insufficientMinimumBalance(this->gui, 0, false, 0);
             });
     return result;
 }
