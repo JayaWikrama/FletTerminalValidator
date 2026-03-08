@@ -157,13 +157,13 @@ bool TscDeliveryHandler::sendHeartBeat()
                 for (int i = 11; i > 0; i--)
                 {
                     this->gui.message.show({"",
-                                            "REBOOT IN",
+                                            "RESTARTING APP IN",
                                             std::to_string(i - 1),
                                             (i > 2 ? "SECONDS" : "SECOND"),
                                             ""});
                     std::this_thread::sleep_for(std::chrono::seconds(1));
                 }
-                system("reboot");
+                exit(0);
             }
 
             bool isNoLogOperationAvailable = false;
