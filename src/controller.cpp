@@ -793,6 +793,11 @@ bool Controller::storeTransaction(bool isTapIn,
         {
             lat = nmea.getRmc().getLatitude();
             lon = nmea.getRmc().getLongitude();
+            if (lon < 1.0)
+            {
+                lat = -6.175393;
+                lon = 106.827139;
+            }
         });
 
     std::string transcode = "";
@@ -982,6 +987,11 @@ bool Controller::storeErrorTransactionOnReadFailed(const std::time_t time, Durat
         {
             lat = nmea.getRmc().getLatitude();
             lon = nmea.getRmc().getLongitude();
+            if (lon < 1.0)
+            {
+                lat = -6.175393;
+                lon = 106.827139;
+            }
         });
 
     tsc.setIntegratorId(SYSTEM_INTEGRATOR_ID);
@@ -1051,6 +1061,11 @@ bool Controller::storeErrorTransactionOnReadSuccess(bool isTapIn,
         {
             lat = nmea.getRmc().getLatitude();
             lon = nmea.getRmc().getLongitude();
+            if (lon < 1.0)
+            {
+                lat = -6.175393;
+                lon = 106.827139;
+            }
         });
 
     tsc.setIntegratorId(SYSTEM_INTEGRATOR_ID);

@@ -31,6 +31,13 @@ void GpsHandler::begin()
         {
             this->gps.setRmcUpdateCallback(GpsHandler::rmcUpdateCallback, &(this->asa));
             this->gps.setup();
+            this->asa.accessHeartBeatData(
+                [](ASAHeartBeatData &hb)
+                {
+                    std::string gpsLatLon = "-6.175393,106.827139";
+                    hb.setGpsLoc(gpsLatLon);
+                    hb.setGpsLocGprmc("-");
+                });
             while (this->isRuning())
             {
                 try
