@@ -1,10 +1,15 @@
+#include <fstream>
+
 #include "sam-handler.hpp"
+#include "controller.hpp"
 
 #include "epayment/include/epayment.hpp"
 #include "workflow/include/provision/payment-acceptance.hpp"
 #include "communication/include/asa.hpp"
 #include "gui/include/gui.hpp"
+#include "utils/include/debug.hpp"
 #include "utils/include/time.hpp"
+#include "utils/include/nlohmann/json.hpp"
 
 SAMHandler::SAMStatus::SAMStatus() : active(false),
                                      initStatus(false),
@@ -46,6 +51,52 @@ const std::string &SAMHandler::SAMStatus::getErrorCode() const
 {
     std::lock_guard<std::mutex> guard(mtx);
     return errorCode;
+}
+
+bool SAMHandler::bufferMarriageCode(const std::string &filePath, const std::string &marriageCode)
+{
+    nlohmann::json data;
+    data["marriageCode"] = marriageCode;
+
+    std::ofstream outputFile(filePath);
+    if (!outputFile.is_open())
+        return false;
+
+    outputFile << data.dump(4);
+    outputFile.close();
+
+    return true;
+}
+
+bool SAMHandler::getMarriageCodeBuffer(const std::string &filePath, std::string &marriageCode)
+{
+    std::ifstream inputFile(filePath);
+    if (!inputFile.is_open())
+    {
+        Debug::info(__FILE__, __LINE__, __func__, "file already empty");
+        return false;
+    }
+
+    nlohmann::json data;
+
+    try
+    {
+        inputFile >> data;
+    }
+    catch (...)
+    {
+        Debug::error(__FILE__, __LINE__, __func__, "failed to parse data");
+        return false;
+    }
+
+    if (!data.contains("marriageCode") || !data["marriageCode"].is_string())
+    {
+        Debug::error(__FILE__, __LINE__, __func__, "field not found");
+        return false;
+    }
+
+    marriageCode = data["marriageCode"].get<std::string>();
+    return true;
 }
 
 std::string SAMHandler::generateInitStatusMessage(const std::string &bank, const SAMStatus &samStatus, bool isPending, bool isProcess) const
@@ -104,14 +155,30 @@ bool SAMHandler::setupSAM(const PaymentAcceptance &p)
     }
     if (p.getTapcash().getSlot() > 0)
     {
-        if (epayment.setBNISamConfig(
-                p.getTapcash()
-                    .getSlot(),
-                p.getTapcash().getMID().c_str(),
-                p.getTapcash().getTID().c_str(),
-                p.getTapcash().getMC().c_str()) == false)
+        std::string marriageCodeBuffer;
+        if (this->getMarriageCodeBuffer(MARRIAGE_CODE_BUFFER, marriageCodeBuffer))
         {
-            return false;
+            if (epayment.setBNISamConfig(
+                    p.getTapcash()
+                        .getSlot(),
+                    p.getTapcash().getMID().c_str(),
+                    p.getTapcash().getTID().c_str(),
+                    marriageCodeBuffer.c_str()) == false)
+            {
+                return false;
+            }
+        }
+        else
+        {
+            if (epayment.setBNISamConfig(
+                    p.getTapcash()
+                        .getSlot(),
+                    p.getTapcash().getMID().c_str(),
+                    p.getTapcash().getTID().c_str(),
+                    p.getTapcash().getMC().c_str()) == false)
+            {
+                return false;
+            }
         }
         this->bni.setIsActiveStatus(true);
     }
@@ -213,6 +280,15 @@ bool SAMHandler::initSAM(Gui &ui)
         this->bni.setInitSuccessStatus(this->epayment.initBNISAM(115200));
         if (this->bni.isInitSuccess() == false)
             this->bni.setErrorCode("SAME");
+
+        SAM *samBNI = this->epayment.getSAM(SAM::SAM_TYPE_BNI);
+        if (samBNI != nullptr)
+        {
+            if (samBNI->getActiveMarriageCode().compare(samBNI->getMarriageCodeOverlay()) != 0)
+            {
+                this->bufferMarriageCode(MARRIAGE_CODE_BUFFER, samBNI->getActiveMarriageCode());
+            }
+        }
     }
 
     ui.message.show(

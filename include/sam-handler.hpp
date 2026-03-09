@@ -43,6 +43,9 @@ private:
     SAMStatus dki;
     Epayment &epayment;
 
+    bool bufferMarriageCode(const std::string &filePath, const std::string &marriageCode);
+    bool getMarriageCodeBuffer(const std::string &filePath, std::string &marriageCode);
+
     std::string generateInitStatusMessage(const std::string &bank, const SAMStatus &samStatus, bool isPending, bool isProcess) const;
 
 public:
