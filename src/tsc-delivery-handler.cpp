@@ -39,7 +39,8 @@ void TscDeliveryHandler::checkMarriageCodeUpdateRequirement()
             SAM *samBNI = epayment.getSAM(SAM::SAM_TYPE_BNI);
             if (samBNI != nullptr)
             {
-                if (samBNI->getActiveMarriageCode().compare(samBNI->getMarriageCodeOverlay()) != 0)
+                const PaymentChannel &paymentChannelBNI = this->workflow.getProvision().getData().getPaymentAcceptance().getTapcash();
+                if (paymentChannelBNI.getSlot() > 0 && samBNI->getActiveMarriageCode().compare(paymentChannelBNI.getMC()) != 0)
                 {
                     Debug::info(__FILE__, __LINE__, __func__, "BNI SAM Marriage Code update required\n");
                     this->isSendMarriageCode = true;
@@ -276,6 +277,7 @@ bool TscDeliveryHandler::sendMarriageCodeIfNeed()
             if (this->asa.sendMarriageCode(marriageCode, mid, tid))
             {
                 this->isSendMarriageCode = false;
+                std::remove(MARRIAGE_CODE_BUFFER);
                 Debug::info(__FILE__, __LINE__, __func__, "success to update marriage code data\n");
             }
             else

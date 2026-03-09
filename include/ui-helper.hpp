@@ -42,6 +42,7 @@ public:
     static void freeServiceExpired(Gui &gui, std::time_t exp);
     static void fareNotFound(Gui &gui);
     static void insufficientMinimumBalance(Gui &gui, unsigned int balance, bool isFreeServiceComboExpired, std::time_t exp);
+    static void unfinishedTransaction(Gui &gui, unsigned long long pan, int counter);
 };
 
 #endif

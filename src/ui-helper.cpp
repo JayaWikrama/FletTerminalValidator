@@ -46,6 +46,27 @@ std::string formatDate(std::time_t time, const std::string &pre = "")
     return pre + " " + std::string(dte);
 }
 
+std::string formatPAN(unsigned long long value)
+{
+    std::string digits = std::to_string(value);
+
+    if (digits.length() < 16)
+        digits.insert(0, 16 - digits.length(), '0');
+
+    std::string result;
+    result.reserve(19);
+
+    for (size_t i = 0; i < 16; ++i)
+    {
+        result += digits[i];
+
+        if ((i + 1) % 4 == 0 && i != 15)
+            result += ' ';
+    }
+
+    return result;
+}
+
 void UIHelper::reset(Gui &gui, unsigned int amount)
 {
     std::lock_guard<std::mutex> guard(UIHelper::mtx);
@@ -440,4 +461,14 @@ void UIHelper::insufficientMinimumBalance(Gui &gui, unsigned int balance, bool i
              "SILAHKAN ISI SALDO",
              "TERIMA KASIH"});
     }
+}
+
+void UIHelper::unfinishedTransaction(Gui &gui, unsigned long long pan, int counter)
+{
+    gui.message.show(
+        {"TRANSAKSI BELUM SELESAI",
+         "SILAHKAN TAP KARTU KEMBALI",
+         formatPAN(pan),
+         " ",
+         std::to_string(counter)});
 }

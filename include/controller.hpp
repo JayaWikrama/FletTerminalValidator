@@ -69,6 +69,17 @@ private:
     mutable std::mutex mtx;
 
     bool processAttachedCard(Duration &duration);
+
+    bool writeErrorHandlerAfterDeductSuccess(bool isTapIn,
+                                             const std::time_t time,
+                                             const int lastBalance,
+                                             const CardData &refUserData,
+                                             const TransactionRules &rules,
+                                             const std::string &transcodeStr,
+                                             Duration &duration,
+                                             const std::array<unsigned char, 64UL> &userData,
+                                             const std::array<unsigned char, 64UL> &toWrite);
+
     bool storeTransaction(bool isTapIn,
                           bool isDeduct,
                           const std::time_t time,
@@ -76,7 +87,8 @@ private:
                           const CardData &refUserData,
                           const TransactionRules &rules,
                           const std::string &transcodeStr,
-                          Duration &duration);
+                          Duration &duration,
+                          bool isWriteFailed);
 
     bool storeErrorTransactionOnReadFailed(const std::time_t time, Duration &duration, const ErrorCode::Code &desc);
 

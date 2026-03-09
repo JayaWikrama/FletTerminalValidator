@@ -175,7 +175,8 @@ bool Controller::processAttachedCard(Duration &duration)
                             refUserData,
                             rules,
                             transcode,
-                            duration);
+                            duration,
+                            false);
 
                         /* generate tap-in data */
                         this->storeTransaction(
@@ -186,19 +187,47 @@ bool Controller::processAttachedCard(Duration &duration)
                             refUserData,
                             rules,
                             transcode,
-                            duration);
-
-                        if (amountDeduct > 0 && fromRecovery == false)
-                            this->epayment.purchaseCommit();
-
-                        this->uncompleWriteHandler.setUsed(refUserData.getCardNumber());
+                            duration,
+                            false);
                     }
                     else
                     {
                         duration.checkPoint("write user data failed");
-                        UIHelper::failedToWriteCard(this->gui, "1004");
-                        this->storeErrorWriteUserData(true, false, cardBalance, refUserData, rules, duration);
+                        result = this->writeErrorHandlerAfterDeductSuccess(false,
+                                                                           std::time(nullptr),
+                                                                           cardBalance,
+                                                                           refUserData,
+                                                                           rules,
+                                                                           transcode,
+                                                                           duration,
+                                                                           userData,
+                                                                           toWrite);
+                        if (result)
+                        {
+                            UIHelper::TariffType type = UIHelper::TariffType::REGULER;
+
+                            if (refUserData.isCardOKOTrip())
+                                type = UIHelper::TariffType::JAKLINGKO;
+                            else if (refUserData.isCardFreeServices())
+                                type = UIHelper::TariffType::FREE;
+
+                            UIHelper::successResetTapIn(this->gui,
+                                                        amountDeduct,
+                                                        amountDeduct,
+                                                        cardBalance,
+                                                        type,
+                                                        refUserData.freeService.expireOn);
+                        }
+                        else
+                        {
+                            UIHelper::failedToWriteCard(this->gui, "1004");
+                        }
                     }
+
+                    if (amountDeduct > 0 && fromRecovery == false)
+                        this->epayment.purchaseCommit();
+
+                    this->uncompleWriteHandler.setUsed(refUserData.getCardNumber());
                 }
                 else
                 {
@@ -303,19 +332,47 @@ bool Controller::processAttachedCard(Duration &duration)
                             refUserData,
                             rules,
                             transcode,
-                            duration);
-
-                        if (amountDeduct > 0 && fromRecovery == false)
-                            this->epayment.purchaseCommit();
-
-                        this->uncompleWriteHandler.setUsed(refUserData.getCardNumber());
+                            duration,
+                            false);
                     }
                     else
                     {
                         duration.checkPoint("write user data failed");
-                        UIHelper::failedToWriteCard(this->gui, "1004");
-                        this->storeErrorWriteUserData(true, true, cardBalance, refUserData, rules, duration);
+                        result = this->writeErrorHandlerAfterDeductSuccess(true,
+                                                                           std::time(nullptr),
+                                                                           cardBalance,
+                                                                           refUserData,
+                                                                           rules,
+                                                                           transcode,
+                                                                           duration,
+                                                                           userData,
+                                                                           toWrite);
+                        if (result)
+                        {
+                            UIHelper::TariffType type = UIHelper::TariffType::REGULER;
+
+                            if (refUserData.isCardOKOTrip())
+                                type = UIHelper::TariffType::JAKLINGKO;
+                            else if (refUserData.isCardFreeServices())
+                                type = UIHelper::TariffType::FREE;
+
+                            UIHelper::successTapInWithDeduct(this->gui,
+                                                             amountDeduct,
+                                                             amountDeduct,
+                                                             cardBalance,
+                                                             type,
+                                                             refUserData.freeService.expireOn);
+                        }
+                        else
+                        {
+                            UIHelper::failedToWriteCard(this->gui, "1004");
+                        }
                     }
+
+                    if (amountDeduct > 0 && fromRecovery == false)
+                        this->epayment.purchaseCommit();
+
+                    this->uncompleWriteHandler.setUsed(refUserData.getCardNumber());
                 }
                 else
                 {
@@ -375,7 +432,8 @@ bool Controller::processAttachedCard(Duration &duration)
                         refUserData,
                         rules,
                         "",
-                        duration);
+                        duration,
+                        false);
                 }
                 else
                 {
@@ -442,7 +500,8 @@ bool Controller::processAttachedCard(Duration &duration)
                             refUserData,
                             rules,
                             "",
-                            duration);
+                            duration,
+                            false);
                     }
                     else
                     {
@@ -533,19 +592,47 @@ bool Controller::processAttachedCard(Duration &duration)
                             refUserData,
                             rules,
                             transcode,
-                            duration);
-
-                        if (amountDeduct > 0 && fromRecovery == false)
-                            this->epayment.purchaseCommit();
-
-                        this->uncompleWriteHandler.setUsed(refUserData.getCardNumber());
+                            duration,
+                            false);
                     }
                     else
                     {
                         duration.checkPoint("write user data failed");
-                        UIHelper::failedToWriteCard(this->gui, "1004");
-                        this->storeErrorWriteUserData(false, true, cardBalance, refUserData, rules, duration);
+                        result = this->writeErrorHandlerAfterDeductSuccess(false,
+                                                                           std::time(nullptr),
+                                                                           cardBalance,
+                                                                           refUserData,
+                                                                           rules,
+                                                                           transcode,
+                                                                           duration,
+                                                                           userData,
+                                                                           toWrite);
+                        if (result)
+                        {
+                            UIHelper::TariffType type = UIHelper::TariffType::REGULER;
+
+                            if (refUserData.isCardOKOTrip())
+                                type = UIHelper::TariffType::JAKLINGKO;
+                            else if (refUserData.isCardFreeServices())
+                                type = UIHelper::TariffType::FREE;
+
+                            UIHelper::successTapOutWithDeduct(this->gui,
+                                                              amountDeduct,
+                                                              amountDeduct,
+                                                              cardBalance,
+                                                              type,
+                                                              refUserData.freeService.expireOn);
+                        }
+                        else
+                        {
+                            UIHelper::failedToWriteCard(this->gui, "1004");
+                        }
                     }
+
+                    if (amountDeduct > 0 && fromRecovery == false)
+                        this->epayment.purchaseCommit();
+
+                    this->uncompleWriteHandler.setUsed(refUserData.getCardNumber());
                 }
                 else
                 {
@@ -607,6 +694,68 @@ bool Controller::processAttachedCard(Duration &duration)
     return result;
 }
 
+bool Controller::writeErrorHandlerAfterDeductSuccess(bool isTapIn,
+                                                     const std::time_t time,
+                                                     const int lastBalance,
+                                                     const CardData &refUserData,
+                                                     const TransactionRules &rules,
+                                                     const std::string &transcodeStr,
+                                                     Duration &duration,
+                                                     const std::array<unsigned char, 64UL> &userData,
+                                                     const std::array<unsigned char, 64UL> &toWrite)
+{
+    this->storeTransaction(
+        isTapIn,
+        true,
+        time,
+        lastBalance,
+        refUserData,
+        rules,
+        transcodeStr,
+        duration,
+        true);
+
+    std::time_t refTime = std::time(nullptr);
+    std::time_t checkTime = refTime;
+    int elaps = 0;
+    int counter = 10;
+    int counterLast = 0;
+    bool writeSuccess = false;
+
+    do
+    {
+        counter = 10 - elaps;
+        if (counter != counterLast)
+        {
+            UIHelper::unfinishedTransaction(this->gui, refUserData.getCardNumber(), counter);
+            counterLast = counter;
+        }
+        if (this->epayment.selectAttachedCard())
+        {
+            if (this->epayment.getCardNumber() == refUserData.getCardNumber())
+            {
+                if (this->epayment.writeUserData<64>(toWrite, userData))
+                {
+                    writeSuccess = true;
+                    break;
+                }
+            }
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(125));
+        checkTime = std::time(nullptr);
+        elaps = static_cast<int>(checkTime - refTime);
+    } while (elaps < 11 && checkTime >= refTime);
+
+    if (writeSuccess)
+        SoundHelper::transactionSuccess();
+    else
+        SoundHelper::transactionFailed();
+
+    UIHelper::updateCounter(this->gui, this->counter.get());
+
+    return writeSuccess;
+}
+
 bool Controller::storeTransaction(bool isTapIn,
                                   bool isDeduct,
                                   const std::time_t time,
@@ -614,9 +763,11 @@ bool Controller::storeTransaction(bool isTapIn,
                                   const CardData &refUserData,
                                   const TransactionRules &rules,
                                   const std::string &transcodeStr,
-                                  Duration &duration)
+                                  Duration &duration,
+                                  bool isWriteFailed)
 {
-    SoundHelper::transactionSuccess();
+    if (isWriteFailed == false)
+        SoundHelper::transactionSuccess();
 
     try
     {
@@ -698,7 +849,28 @@ bool Controller::storeTransaction(bool isTapIn,
     tsc.setTID(this->epayment.getActiveTID());
     tsc.setTranscode(transcode);
     tsc.setStatus("D");
-    tsc.setDescription("D");
+    if (isWriteFailed == false)
+        tsc.setDescription("D");
+    else
+    {
+        ErrorCode::Code ecode = ErrorCode::Code::MANDIRI_D9_WRITE_BLOCK_EXCEPTION;
+        switch (this->epayment.getType())
+        {
+        case Card::CARD_TYPE_BRI:
+            ecode = ErrorCode::Code::BRI_A7_WRITE_BLOCK_EXCEPTION;
+            break;
+        case Card::CARD_TYPE_BNI:
+            ecode = ErrorCode::Code::BNI_B8_WRITE_BLOCK_EXCEPTION;
+            break;
+        case Card::CARD_TYPE_BCA:
+            ecode = ErrorCode::Code::BCA_E9_WRITE_BLOCK_EXCEPTION;
+            break;
+        case Card::CARD_TYPE_DKI:
+            ecode = ErrorCode::Code::DKI_CB_WRITE_BLOCK_EXCEPTION;
+            break;
+        }
+        tsc.setDescription(ErrorCode::toString(ecode));
+    }
     tsc.setTransactionInfo(me);
     tsc.setTransactionRefInfo(ref);
     tsc.setCardData(card);
@@ -773,7 +945,8 @@ bool Controller::storeTransaction(bool isTapIn,
                                 this->counter->getTotalTapOut());
                 });
 
-            UIHelper::updateCounter(this->gui, this->counter.get());
+            if (isWriteFailed == false)
+                UIHelper::updateCounter(this->gui, this->counter.get());
         }
         else
         {
