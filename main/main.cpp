@@ -192,7 +192,7 @@ int main(int argc, char *argv[])
             ui.labelTariff.hide();
 #ifdef FTV_MODULE_VERSION
             std::string version = FTV_MODULE_VERSION;
-            ui.labelVersion.setText(("V: " + version.substr(0, version.find('-'))).c_str());
+            ui.labelVersion.setText(("V : " + version.substr(0, version.find('-'))).c_str());
 #endif
 
             samHandler.initSAM(ui);
