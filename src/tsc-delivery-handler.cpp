@@ -10,6 +10,7 @@
 #include "controller.hpp"
 #include "counter.hpp"
 #include "directory-cleaner.hpp"
+#include "fs-helper.hpp"
 #include "tscdata/include/transaction-data.hpp"
 #include "tscdata/include/sqlite3-transaction.hpp"
 #include "communication/include/asa.hpp"
@@ -181,13 +182,22 @@ bool TscDeliveryHandler::sendHeartBeat()
                     TimeUtils::fromEpoch(&tmp, std::time(nullptr));
                     std::string datetimeRFC_3339 = TimeUtils::format(&tmp, TimeUtils::TIME_FORMAT_RFC_3339);
                     this->zipLogFileName = std::string(TMP_DIRECTORY) + "/" + this->asa.getSerialNumber() + "-" + datetimeRFC_3339 + ".zip";
-                    std::string command = "zip -r '" + this->zipLogFileName + "' " + std::string(LOG_DIRECTORY);
+                    std::string command = "zip -r '" + this->zipLogFileName + "' " + std::string(TMP_LOG_DIRECTORY);
                     Debug::info(__FILE__, __LINE__, __func__, "command: \"%s\"\n", command.c_str());
 
                     if (mkdir(TMP_DIRECTORY, 0777) == 0)
                         Debug::info(__FILE__, __LINE__, __func__, "create directory \"%s\" success\n", TMP_DIRECTORY);
                     else if (errno == EEXIST)
                         Debug::info(__FILE__, __LINE__, __func__, "directory \"%s\" already exist\n", TMP_DIRECTORY);
+
+                    FSHelper::removeDirectory(TMP_LOG_DIRECTORY);
+                    if (mkdir(TMP_LOG_DIRECTORY, 0777) == 0)
+                        Debug::info(__FILE__, __LINE__, __func__, "create directory \"%s\" success\n", TMP_LOG_DIRECTORY);
+                    else if (errno == EEXIST)
+                        Debug::info(__FILE__, __LINE__, __func__, "directory \"%s\" already exist\n", TMP_LOG_DIRECTORY);
+
+                    FSHelper::copyFilesWithExtensions(LOG_DIRECTORY, TMP_LOG_DIRECTORY, {".log", ".xz", ".json"});
+                    FSHelper::copyFile(TRANSACTION_DATABASE, std::string(TMP_LOG_DIRECTORY) + "/transaction.db");
 
                     if (system(command.c_str()) == 0)
                     {
@@ -214,6 +224,7 @@ bool TscDeliveryHandler::sendHeartBeat()
                                     this->sendLogStatus = TscDeliveryHandler::SendLogStatus::FAILED;
                                 }
                                 std::lock_guard<std::mutex> guard(this->mtx);
+                                FSHelper::removeDirectory(TMP_LOG_DIRECTORY);
                                 DirectoryCleaner dirClean(TMP_DIRECTORY, ".zip");
                                 if (dirClean.execute() == false)
                                 {

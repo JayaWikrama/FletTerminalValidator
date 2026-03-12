@@ -43,6 +43,7 @@ set(SOURCE_FILES
   src/duration.cpp
   src/ui-helper.cpp
   src/sound-helper.cpp
+  src/fs-helper.cpp
   src/qr-decode-helper.cpp
   src/error-code.cpp
   src/setup.cpp
