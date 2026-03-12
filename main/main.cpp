@@ -92,6 +92,7 @@ int main(int argc, char *argv[])
 
     Sqlite3Transaction localTscDatabase(TRANSACTION_DATABASE);
     localTscDatabase.createLog();
+    localTscDatabase.setFailedSqlPath(LOG_DIRECTORY);
 
     Gui gui;
     Epayment epayment;

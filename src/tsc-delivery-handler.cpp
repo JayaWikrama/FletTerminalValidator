@@ -120,7 +120,7 @@ bool TscDeliveryHandler::sendDataToSecondaryServer()
     if (result)
     {
         Debug::info(__FILE__, __LINE__, __func__, "success to send data %s\n", tsc.getUUID().c_str());
-        this->localTscDatabase.updateSuccessToSentToSecondServer(tsc.getUUID());
+        this->localTscDatabase.updateSuccessToSentToSecondServer(tsc.getUUID(), 1);
         if (isTscSuccess)
         {
             controler.accessCounter(
@@ -131,6 +131,11 @@ bool TscDeliveryHandler::sendDataToSecondaryServer()
                     Debug::info(__FILE__, __LINE__, __func__, "counter updated\n");
                 });
         }
+    }
+    else if (this->tjs.getLastStatusCode() == 200)
+    {
+        Debug::info(__FILE__, __LINE__, __func__, "status code 200, set sent status code to 2 %s\n", tsc.getUUID().c_str());
+        this->localTscDatabase.updateSuccessToSentToSecondServer(tsc.getUUID(), 2);
     }
     return result;
 }
@@ -383,6 +388,8 @@ void TscDeliveryHandler::begin()
                     this->sendDataToSecondaryServer();
 
                 this->sendHeartBeat();
+
+                this->localTscDatabase.manageFailedSQLData();
 
                 TscDeliveryHandler::waitFor(SENT_INTERVAL * 1000);
             }
