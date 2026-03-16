@@ -71,7 +71,7 @@ void UIHelper::reset(Gui &gui, unsigned int amount)
 {
     std::lock_guard<std::mutex> guard(UIHelper::mtx);
     UIHelper::isStateProcessing = false;
-    gui.labelTariff.setRupiah(amount, "Tarif");
+    gui.labelTariff.setRupiah(amount, "TARIF");
     gui.labelStatus.hide();
     gui.labelCardNumber.hide();
     gui.labelBalance.hide();
