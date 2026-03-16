@@ -96,6 +96,7 @@ target_link_libraries(${PROJECT_NAME}
     ${CMAKE_CURRENT_SOURCE_DIR}/dependency/serial/lib/libSerialink.a
     ${CMAKE_CURRENT_SOURCE_DIR}/dependency/serial/lib/libDataFrame.a
     ${CMAKE_CURRENT_SOURCE_DIR}/dependency/quirc/lib/libquirc.a
+    ${CMAKE_CURRENT_SOURCE_DIR}/dependency/ntp/lib/libntpclient.a
 )
 target_link_libraries(${PROJECT_NAME}
   PUBLIC

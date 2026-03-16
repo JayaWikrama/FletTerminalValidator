@@ -4,6 +4,7 @@
 #include <functional>
 #include <thread>
 #include <mutex>
+#include <string>
 
 class GsmHandler
 {
@@ -13,6 +14,8 @@ private:
     int signalStrength;
     std::unique_ptr<std::thread> th;
     mutable std::mutex mtx;
+
+    static std::string ntpServer;
 
 public:
     GsmHandler();
@@ -25,6 +28,8 @@ public:
 
     bool isConnected() const;
     int getSignalStrength() const;
+
+    static void setNTPServer(const std::string &url);
 };
 
 #endif

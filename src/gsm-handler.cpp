@@ -1,6 +1,7 @@
 #include "gsm-handler.hpp"
 #include "utils/include/debug.hpp"
 #include "reader/include/LinuxHardwareDriver.h"
+#include "ntp/include/ntpwrapper.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -10,6 +11,8 @@
 #include <arpa/inet.h>
 
 #define INTERNET_CONNECTION_CHECK_INTERVAL 120
+
+std::string GsmHandler::ntpServer = "pool.ntp.org";
 
 static bool testInternetConnection()
 {
@@ -132,6 +135,12 @@ void GsmHandler::begin()
                     Debug::info(__FILE__, __LINE__, __func__, "try to connect gsm (gprs)...\n");
                 }
             }
+            /* NTP Sync */
+            {
+                std::time_t timeNTP = 0;
+                for (int i = 0; i < 3; i++)
+                    SyncDateTime(GsmHandler::ntpServer, 123, timeNTP);
+            }
             /* network monitoring */
             while (this->isRuning())
             {
@@ -187,4 +196,9 @@ int GsmHandler::getSignalStrength() const
 {
     std::lock_guard<std::mutex> guard(this->mtx);
     return this->signalStrength;
+}
+
+void GsmHandler::setNTPServer(const std::string &url)
+{
+    GsmHandler::ntpServer = url;
 }

@@ -173,6 +173,11 @@ int main(int argc, char *argv[])
             tjs.setKey(provisionData.getTransJakartaConfig().getPassword());
             tjs.login();
 
+            /* Set NTP Server */
+            const std::string &NTPServer = provisionData.getSettings().getTransJakartaSettings().getNTP();
+            if (NTPServer.empty() == false)
+                GsmHandler::setNTPServer(NTPServer);
+
             /* Process SAM */
             if (samHandler.setupSAM(workflow.getProvision().getData().getPaymentAcceptance()) == false)
             {
